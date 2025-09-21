@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling>=1.25", "hatch-vcs>=0.3"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sv2svg"
+dynamic = ["version"]
+description = "SystemVerilog to SVG using Schemdraw (left-to-right logic diagrams)"
+readme = "README.md"
+authors = [
+  { name = "Erik", email = "" }
+]
+license = { text = "MIT" }
+requires-python = ">=3.9"
+dependencies = [
+  "schemdraw>=0.16",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sv2svg"]
+
+[project.scripts]
+sv2svg = "sv2svg.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/ErikMeinders/sv2svg"
+Repository = "https://github.com/ErikMeinders/sv2svg"
+Issues = "https://github.com/ErikMeinders/sv2svg/issues"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/sv2svg/_version.py"
+fallback-version = "0.0.0"
