@@ -1,3 +1,10 @@
+# [0.3.0](https://github.com/ErikMeinders/sv2svg/compare/v0.2.3...v0.3.0) (2025-09-22)
+
+
+### Features
+
+* style option for different colors ([d383d0a](https://github.com/ErikMeinders/sv2svg/commit/d383d0a96a158bc87609f87b220519da546ad801))
+
 ## [0.2.3](https://github.com/ErikMeinders/sv2svg/compare/v0.2.2...v0.2.3) (2025-09-22)
 
 
