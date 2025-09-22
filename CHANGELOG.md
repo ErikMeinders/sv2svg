@@ -1,3 +1,10 @@
+## [0.2.3](https://github.com/ErikMeinders/sv2svg/compare/v0.2.2...v0.2.3) (2025-09-22)
+
+
+### Bug Fixes
+
+* potential crash for empty output ([9a97752](https://github.com/ErikMeinders/sv2svg/commit/9a977523dd4931cdf04fb69093a174160ed4091a))
+
 ## [0.2.2](https://github.com/ErikMeinders/sv2svg/compare/v0.2.1...v0.2.2) (2025-09-22)
 
 
