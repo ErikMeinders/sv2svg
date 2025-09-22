@@ -1,5 +1,7 @@
 # Ported from project sv2schemdraw.py (single-file) to reusable module
+import os
 import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -40,6 +42,76 @@ STYLE_PRESETS: Dict[str, Dict[str, Any]] = {
 def available_styles() -> List[str]:
     """List of supported color/style presets."""
     return list(STYLE_PRESETS.keys())
+
+
+def _parse_length(value: Optional[str], fallback: float) -> Tuple[float, str]:
+    if value is None:
+        return fallback, ''
+    s = value.strip()
+    units = ['pt', 'px', 'cm', 'mm', 'in']
+    for unit in units:
+        if s.endswith(unit):
+            try:
+                return float(s[:-len(unit)]), unit
+            except ValueError:
+                break
+    try:
+        return float(s), ''
+    except ValueError:
+        return fallback, ''
+
+
+def _rotate_svg_clockwise(svg_text: str, bbox) -> str:
+    svg_ns = 'http://www.w3.org/2000/svg'
+    xlink_ns = 'http://www.w3.org/1999/xlink'
+    ET.register_namespace('', svg_ns)
+    ET.register_namespace('xlink', xlink_ns)
+
+    root = ET.fromstring(svg_text)
+
+    width_val, width_unit = _parse_length(root.get('width'), bbox.xmax - bbox.xmin)
+    height_val, height_unit = _parse_length(root.get('height'), bbox.ymax - bbox.ymin)
+
+    vb_attr = root.get('viewBox')
+    if vb_attr:
+        try:
+            min_x, min_y, vb_width, vb_height = [float(part) for part in vb_attr.strip().split()[:4]]
+        except ValueError:
+            min_x = bbox.xmin
+            min_y = bbox.ymin
+            vb_width = bbox.xmax - bbox.xmin
+            vb_height = bbox.ymax - bbox.ymin
+    else:
+        min_x = bbox.xmin
+        min_y = bbox.ymin
+        vb_width = bbox.xmax - bbox.xmin
+        vb_height = bbox.ymax - bbox.ymin
+
+    children = list(root)
+    for child in children:
+        root.remove(child)
+
+    transform = (
+        f"translate(0 {vb_width}) "
+        f"rotate(-90) "
+        f"translate({-min_x} {-min_y})"
+    )
+
+    group = ET.Element(f'{{{svg_ns}}}g', {'transform': transform})
+    for child in children:
+        group.append(child)
+    root.append(group)
+
+    if height_val is not None:
+        unit = height_unit
+        root.set('width', f"{height_val}{unit}" if unit else f"{height_val}")
+    if width_val is not None:
+        unit = width_unit
+        root.set('height', f"{width_val}{unit}" if unit else f"{width_val}")
+
+    root.set('viewBox', f"0 0 {vb_height} {vb_width}")
+
+    return ET.tostring(root, encoding='unicode')
 
 
 class SVCircuit:
@@ -201,7 +273,7 @@ class SVCircuit:
         )
         if orientation not in {'horizontal', 'vertical'}:
             orientation = 'horizontal'
-
+        rotate_svg = (orientation == 'vertical')
         x_step = 4.0
         y_step = 2.2
         left_margin = 0.5
@@ -492,25 +564,32 @@ class SVCircuit:
                 y_lo, y_hi = (min(ys), max(ys))
                 if y_hi - y_lo > 0.01:
                     vline_avoid((midx, y_lo), (midx, y_hi))
-        for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
-            d.add(elm.Dot().at((midx, dy)))
-            pre = (dx - 0.6, dy)
-            hline_avoid((midx, dy), pre, target_x=dx)
-            d.add(elm.Line().at(pre).to((dx, dy)))
+                for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
+                    d.add(elm.Dot().at((midx, dy)))
+                    pre = (dx - 0.6, dy)
+                    hline_avoid((midx, dy), pre, target_x=dx)
+                    d.add(elm.Line().at(pre).to((dx, dy)))
 
-        if orientation == 'vertical':
-            try:
-                d.rotate(-90)
-            except AttributeError:
-                pass
+        bbox = d.get_bbox()
+        svg_bytes = d.get_imagedata('svg')
+        svg_text = svg_bytes.decode('utf-8')
+        if rotate_svg:
+            svg_text = _rotate_svg_clockwise(svg_text, bbox)
 
         if to_stdout:
-            # Return SVG data as string instead of saving to file
-            svg_bytes = d.get_imagedata('svg')
-            return svg_bytes.decode('utf-8')
-        else:
+            return svg_text
+
+        ext = os.path.splitext(output_filename)[1].lower()
+        if rotate_svg and ext not in ('.svg', ''):
+            raise ValueError("Vertical orientation is only supported for SVG outputs.")
+
+        if not rotate_svg and ext not in ('.svg', ''):
             d.save(output_filename)
             return None
+
+        with open(output_filename, 'w', encoding='utf-8') as fh:
+            fh.write(svg_text)
+        return None
 
     def _add_gate(self, d, g: Gate, x: float, y: float):
         t = g.type.upper()
@@ -528,7 +607,8 @@ class SVCircuit:
         if t == 'XNOR':
             return d.add(logic.Xnor().at((x, y)).anchor('in1').label(label, 'center'))
         if t in ('NOT', 'INV'):
-            return d.add(logic.Not().at((x, y)).anchor('in').label(label, 'center'))
+            elem = logic.Not().at((x, y)).anchor('in1')
+            return d.add(elem.label(label, 'center'))
         if t in ('BUF', 'BUFFER'):
             try:
                 return d.add(logic.Buffer().at((x, y)).anchor('in1').label(label, 'center'))

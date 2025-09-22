@@ -57,7 +57,7 @@ usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}] [--grid-x GRID
 - `--grid-x`, `--grid-y` — snap coordinates to half-grid (0 disables snapping)
 - `--no-symmetry` — disable mirrored placement for sibling signals
 - `--style` — select a color/line-weight preset for the output (`classic`, `blueprint`, `midnight`, `mono`)
-- `--orientation` — choose `horizontal` (default left-to-right) or `vertical` (top-to-bottom) layout
+- `--orientation` — choose `horizontal` (default left-to-right) or `vertical` (top-to-bottom) layout; vertical mode currently produces rotated SVG output only
 - `-V / --version` — print the sv2svg version derived from git metadata
 
 ## Tips for better diagrams
