@@ -1,3 +1,10 @@
+# [0.5.0](https://github.com/ErikMeinders/sv2svg/compare/v0.4.0...v0.5.0) (2025-09-22)
+
+
+### Features
+
+* --orientation flag implemented ([423bef5](https://github.com/ErikMeinders/sv2svg/commit/423bef586b3fc80eeb1c3d71a721e471df27ca4d))
+
 # [0.4.0](https://github.com/ErikMeinders/sv2svg/compare/v0.3.0...v0.4.0) (2025-09-22)
 
 
