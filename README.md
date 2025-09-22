@@ -6,7 +6,7 @@ Convert SystemVerilog modules into readable logic-diagram SVGs with a single CLI
 - Deterministic left-to-right layout with minimal crossings
 - Automatic input ordering (alphabetical, module ports, or auto)
 - Optional grid snapping and symmetry controls
-- CLI-first workflow with `--help` and `--version` discovery
+- CLI-first workflow with `--help`, `--version`, and `--style` discovery
 - Semantic-release driven SemVer tagging and automated PyPI publishing
 
 ## Installation
@@ -39,14 +39,14 @@ Choose one of the following approaches:
 ```sh
 sv2svg --help
 sv2svg --version
-sv2svg examples/full_adder.sv -o full_adder.svg
+sv2svg examples/full_adder.sv --style blueprint -o full_adder.svg
 ```
-The last command renders `examples/full_adder.sv` into an SVG file in the working directory (falls back to `full_adder_schemdraw.svg` when `-o` is omitted).
+The last command renders `examples/full_adder.sv` into an SVG file in the working directory (falls back to `full_adder_schemdraw.svg` when `-o` is omitted) using the "blueprint" color preset.
 
 ## CLI reference
 ```
 usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}] [--grid-x GRID_X]
-              [--grid-y GRID_Y] [--no-symmetry] [-V]
+              [--grid-y GRID_Y] [--no-symmetry] [--style {classic,blueprint,midnight,mono}] [-V]
               input_file
 ```
 - `input_file` — source SystemVerilog file with the module to visualize
@@ -54,6 +54,7 @@ usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}] [--grid-x GRID
 - `--input-order` — sort inputs alphabetically, preserve declaration order, or auto-detect
 - `--grid-x`, `--grid-y` — snap coordinates to half-grid (0 disables snapping)
 - `--no-symmetry` — disable mirrored placement for sibling signals
+- `--style` — select a color/line-weight preset for the output (`classic`, `blueprint`, `midnight`, `mono`)
 - `-V / --version` — print the sv2svg version derived from git metadata
 
 ## Tips for better diagrams

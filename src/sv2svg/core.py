@@ -1,7 +1,7 @@
 # Ported from project sv2schemdraw.py (single-file) to reusable module
 import re
 from dataclasses import dataclass
-from typing import List, Dict, Tuple, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import schemdraw
 import schemdraw.elements as elm
@@ -15,6 +15,31 @@ class Gate:
     inputs: List[str]
     output: str
     level: int = 0
+
+
+STYLE_PRESETS: Dict[str, Dict[str, Any]] = {
+    "classic": {
+        "config": {"color": "#2c3e50", "lw": 1.1, "fontsize": 12},
+        "module_label_color": "#1f618d",
+    },
+    "blueprint": {
+        "config": {"color": "#0b3d91", "lw": 1.25, "fontsize": 12},
+        "module_label_color": "#0b3d91",
+    },
+    "midnight": {
+        "config": {"color": "#00bcd4", "lw": 1.2, "fontsize": 12},
+        "module_label_color": "#00bcd4",
+    },
+    "mono": {
+        "config": {"color": "#2d3436", "lw": 1.0, "fontsize": 12},
+        "module_label_color": "#2d3436",
+    },
+}
+
+
+def available_styles() -> List[str]:
+    """List of supported color/style presets."""
+    return list(STYLE_PRESETS.keys())
 
 
 class SVCircuit:
@@ -150,10 +175,29 @@ class SVCircuit:
             prev_positions = {f"IN:{name}": idx for idx, name in enumerate(sorted(self.inputs))}
         return levels
 
-    def generate_diagram(self, output_filename: str, input_order: str = 'alpha', grid_x: float = 0.5, grid_y: float = 0.5, symmetry: bool = True, to_stdout: bool = False) -> Optional[str]:
+    def generate_diagram(
+        self,
+        output_filename: str,
+        input_order: str = 'alpha',
+        grid_x: float = 0.5,
+        grid_y: float = 0.5,
+        symmetry: bool = True,
+        to_stdout: bool = False,
+        style: str = 'classic',
+    ) -> Optional[str]:
         d = schemdraw.Drawing(unit=1.2)
-        d.config(fontsize=12)
-        d.add(elm.Label().label(f"Module: {self.module_name}").at((0, -1)).color('steelblue'))
+        style_settings = STYLE_PRESETS.get(style, STYLE_PRESETS['classic'])
+        config_kwargs = dict(style_settings.get('config', {}))
+        if 'fontsize' not in config_kwargs:
+            config_kwargs['fontsize'] = 12
+        d.config(**config_kwargs)
+        module_label_color = style_settings.get('module_label_color', '#1f618d')
+        d.add(
+            elm.Label()
+            .label(f"Module: {self.module_name}")
+            .at((0, -1))
+            .color(module_label_color)
+        )
         x_step = 4.0
         y_step = 2.2
         left_margin = 0.5

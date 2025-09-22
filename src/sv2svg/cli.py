@@ -3,7 +3,7 @@ import sys
 import argparse
 
 from . import __version__
-from .core import SVCircuit
+from .core import SVCircuit, available_styles
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description='SystemVerilog -> Schemdraw SVG')
@@ -14,6 +14,8 @@ def main(argv=None):
     parser.add_argument('--grid-x', type=float, default=0.5, help='Snap X coordinates to this grid step (0 to disable).')
     parser.add_argument('--grid-y', type=float, default=0.5, help='Snap Y coordinates to this grid step (0 to disable).')
     parser.add_argument('--no-symmetry', action='store_true', help='Disable symmetric sibling placement around shared driver centerlines.')
+    parser.add_argument('--style', choices=available_styles(), default='classic',
+                        help='Color/line weight preset for the generated diagram.')
     parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -34,6 +36,7 @@ def main(argv=None):
             grid_y=args.grid_y,
             symmetry=(not args.no_symmetry),
             to_stdout=to_stdout,
+            style=args.style,
         )
 
         if to_stdout:
