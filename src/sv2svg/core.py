@@ -184,6 +184,7 @@ class SVCircuit:
         symmetry: bool = True,
         to_stdout: bool = False,
         style: str = 'classic',
+        orientation: str = 'horizontal',
     ) -> Optional[str]:
         d = schemdraw.Drawing(unit=1.2)
         style_settings = STYLE_PRESETS.get(style, STYLE_PRESETS['classic'])
@@ -198,6 +199,9 @@ class SVCircuit:
             .at((0, -1))
             .color(module_label_color)
         )
+        if orientation not in {'horizontal', 'vertical'}:
+            orientation = 'horizontal'
+
         x_step = 4.0
         y_step = 2.2
         left_margin = 0.5
@@ -295,11 +299,11 @@ class SVCircuit:
                 last_y = y
                 x = left_margin + x_step * float(lvl)
                 elem = self._add_gate(d, g, x, y)
-                gate_elems[g.name] = elem
                 if hasattr(elem, 'out'):
                     out_pt = elem.out
                 else:
                     out_pt = (x + 1.5, y)
+                gate_elems[g.name] = elem
                 sig_source_pt[g.output] = out_pt
 
         out_x = left_margin + x_step * (max_level + 1.1)
@@ -488,11 +492,17 @@ class SVCircuit:
                 y_lo, y_hi = (min(ys), max(ys))
                 if y_hi - y_lo > 0.01:
                     vline_avoid((midx, y_lo), (midx, y_hi))
-                for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
-                    d.add(elm.Dot().at((midx, dy)))
-                    pre = (dx - 0.6, dy)
-                    hline_avoid((midx, dy), pre, target_x=dx)
-                    d.add(elm.Line().at(pre).to((dx, dy)))
+        for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
+            d.add(elm.Dot().at((midx, dy)))
+            pre = (dx - 0.6, dy)
+            hline_avoid((midx, dy), pre, target_x=dx)
+            d.add(elm.Line().at(pre).to((dx, dy)))
+
+        if orientation == 'vertical':
+            try:
+                d.rotate(-90)
+            except AttributeError:
+                pass
 
         if to_stdout:
             # Return SVG data as string instead of saving to file

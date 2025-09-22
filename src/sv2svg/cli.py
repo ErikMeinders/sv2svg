@@ -16,6 +16,8 @@ def main(argv=None):
     parser.add_argument('--no-symmetry', action='store_true', help='Disable symmetric sibling placement around shared driver centerlines.')
     parser.add_argument('--style', choices=available_styles(), default='classic',
                         help='Color/line weight preset for the generated diagram.')
+    parser.add_argument('--orientation', choices=['horizontal', 'vertical'], default='horizontal',
+                        help='Rotate diagram layout: horizontal (left-to-right) or vertical (top-to-bottom).')
     parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -37,6 +39,7 @@ def main(argv=None):
             symmetry=(not args.no_symmetry),
             to_stdout=to_stdout,
             style=args.style,
+            orientation=args.orientation,
         )
 
         if to_stdout:

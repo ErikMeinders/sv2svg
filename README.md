@@ -6,7 +6,7 @@ Convert SystemVerilog modules into readable logic-diagram SVGs with a single CLI
 - Deterministic left-to-right layout with minimal crossings
 - Automatic input ordering (alphabetical, module ports, or auto)
 - Optional grid snapping and symmetry controls
-- CLI-first workflow with `--help`, `--version`, and `--style` discovery
+- CLI-first workflow with `--help`, `--version`, `--style`, and `--orientation` discovery
 - Semantic-release driven SemVer tagging and automated PyPI publishing
 
 ## Installation
@@ -39,14 +39,16 @@ Choose one of the following approaches:
 ```sh
 sv2svg --help
 sv2svg --version
-sv2svg examples/full_adder.sv --style blueprint -o full_adder.svg
+sv2svg examples/full_adder.sv --style blueprint --orientation vertical -o full_adder.svg
 ```
-The last command renders `examples/full_adder.sv` into an SVG file in the working directory (falls back to `full_adder_schemdraw.svg` when `-o` is omitted) using the "blueprint" color preset.
+The last command renders `examples/full_adder.sv` into an SVG file in the working directory (falls back to `full_adder_schemdraw.svg` when `-o` is omitted) using the "blueprint" color preset and a vertical layout.
 
 ## CLI reference
 ```
 usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}] [--grid-x GRID_X]
-              [--grid-y GRID_Y] [--no-symmetry] [--style {classic,blueprint,midnight,mono}] [-V]
+              [--grid-y GRID_Y] [--no-symmetry]
+              [--style {classic,blueprint,midnight,mono}]
+              [--orientation {horizontal,vertical}] [-V]
               input_file
 ```
 - `input_file` — source SystemVerilog file with the module to visualize
@@ -55,6 +57,7 @@ usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}] [--grid-x GRID
 - `--grid-x`, `--grid-y` — snap coordinates to half-grid (0 disables snapping)
 - `--no-symmetry` — disable mirrored placement for sibling signals
 - `--style` — select a color/line-weight preset for the output (`classic`, `blueprint`, `midnight`, `mono`)
+- `--orientation` — choose `horizontal` (default left-to-right) or `vertical` (top-to-bottom) layout
 - `-V / --version` — print the sv2svg version derived from git metadata
 
 ## Tips for better diagrams
