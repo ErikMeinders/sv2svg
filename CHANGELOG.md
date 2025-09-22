@@ -1,3 +1,10 @@
+## [0.5.1](https://github.com/ErikMeinders/sv2svg/compare/v0.5.0...v0.5.1) (2025-09-22)
+
+
+### Bug Fixes
+
+* restore vertical orientation output ([0b53942](https://github.com/ErikMeinders/sv2svg/commit/0b5394291973fbcde2d9dee9155ea16318f6ff75))
+
 # [0.5.0](https://github.com/ErikMeinders/sv2svg/compare/v0.4.0...v0.5.0) (2025-09-22)
 
 
