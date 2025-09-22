@@ -43,7 +43,7 @@ Release flow:
 
 - Commits to `main` are analyzed with [semantic-release](https://semantic-release.gitbook.io). Use [Conventional Commits](https://www.conventionalcommits.org) to drive version bumps.
 - When semantic-release detects a new version, it updates `CHANGELOG.md`, creates a Git tag (e.g. `v0.1.0`), and publishes a GitHub release.
-- The tag push triggers the existing PyPI publish workflow, which builds the package and uploads it via trusted publishing.
+- The same workflow then builds the package and uploads it to PyPI via trusted publishing when a release is cut.
 
 Notes:
 
