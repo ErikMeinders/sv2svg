@@ -27,10 +27,19 @@ def main(argv=None):
     circ = SVCircuit()
     try:
         circ.parse_file(args.input_file)
-        svg_data = circ.generate_diagram(out, input_order=args.input_order, grid_x=args.grid_x, grid_y=args.grid_y, symmetry=(not args.no_symmetry), to_stdout=to_stdout)
+        svg_data = circ.generate_diagram(
+            out,
+            input_order=args.input_order,
+            grid_x=args.grid_x,
+            grid_y=args.grid_y,
+            symmetry=(not args.no_symmetry),
+            to_stdout=to_stdout,
+        )
 
         if to_stdout:
             # Write SVG data to stdout as text
+            if svg_data is None:
+                raise RuntimeError("Expected SVG data when writing to stdout")
             sys.stdout.write(svg_data)
             sys.stdout.flush()
         else:
