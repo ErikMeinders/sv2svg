@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 
+from . import __version__
 from .core import SVCircuit
 
 def main(argv=None):
@@ -13,6 +14,7 @@ def main(argv=None):
     parser.add_argument('--grid-x', type=float, default=0.5, help='Snap X coordinates to this grid step (0 to disable).')
     parser.add_argument('--grid-y', type=float, default=0.5, help='Snap Y coordinates to this grid step (0 to disable).')
     parser.add_argument('--no-symmetry', action='store_true', help='Disable symmetric sibling placement around shared driver centerlines.')
+    parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
     out = args.output
