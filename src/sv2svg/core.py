@@ -150,7 +150,7 @@ class SVCircuit:
             prev_positions = {f"IN:{name}": idx for idx, name in enumerate(sorted(self.inputs))}
         return levels
 
-    def generate_diagram(self, output_filename: str, input_order: str = 'alpha', grid_x: float = 0.5, grid_y: float = 0.5, symmetry: bool = True) -> None:
+    def generate_diagram(self, output_filename: str, input_order: str = 'alpha', grid_x: float = 0.5, grid_y: float = 0.5, symmetry: bool = True, to_stdout: bool = False) -> Optional[str]:
         d = schemdraw.Drawing(unit=1.2)
         d.config(fontsize=12)
         d.add(elm.Label().label(f"Module: {self.module_name}").at((0, -1)).color('steelblue'))
@@ -450,7 +450,13 @@ class SVCircuit:
                     hline_avoid((midx, dy), pre, target_x=dx)
                     d.add(elm.Line().at(pre).to((dx, dy)))
 
-        d.save(output_filename)
+        if to_stdout:
+            # Return SVG data as string instead of saving to file
+            svg_bytes = d.get_imagedata('svg')
+            return svg_bytes.decode('utf-8')
+        else:
+            d.save(output_filename)
+            return None
 
     def _add_gate(self, d, g: Gate, x: float, y: float):
         t = g.type.upper()

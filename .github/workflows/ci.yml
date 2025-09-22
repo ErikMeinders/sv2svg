@@ -13,6 +13,8 @@ jobs:
       PIP_EXTRA_INDEX_URL: https://pypi.org/simple
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # include tags for hatch-vcs consistency
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
