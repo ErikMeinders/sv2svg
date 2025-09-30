@@ -1,3 +1,10 @@
+## [0.6.2](https://github.com/ErikMeinders/sv2svg/compare/v0.6.1...v0.6.2) (2025-09-30)
+
+
+### Bug Fixes
+
+* correct permissions in claude.yml per official docs ([c6f707c](https://github.com/ErikMeinders/sv2svg/commit/c6f707c6c6a0ac5facfe3a64f7ac70a56c8efe24))
+
 ## [0.6.1](https://github.com/ErikMeinders/sv2svg/compare/v0.6.0...v0.6.1) (2025-09-30)
 
 
