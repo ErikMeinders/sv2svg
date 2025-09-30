@@ -685,5 +685,5 @@ class SVCircuit:
             try:
                 return d.add(logic.Buffer().at((x, y)).anchor('in1').label(label, 'center'))
             except Exception:
-                return d.add(elm.Box().at((x, y)).anchor('W').label(f"BUF:{label}", 'center'))
-        return d.add(elm.Box().at((x, y)).anchor('W').label(f"{t}:{label}", 'center'))
+                return d.add(elm.Rect(w=1, h=1).at((x, y)).label(f"BUF:{label}", 'center'))
+        return d.add(elm.Rect(w=1, h=1).at((x, y)).label(f"{t}:{label}", 'center'))
