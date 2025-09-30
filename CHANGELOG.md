@@ -1,3 +1,10 @@
+## [0.8.1](https://github.com/ErikMeinders/sv2svg/compare/v0.8.0...v0.8.1) (2025-09-30)
+
+
+### Bug Fixes
+
+* replace non-existent elm.Box with elm.Rect for fallback gate rendering ([8a6e7f7](https://github.com/ErikMeinders/sv2svg/commit/8a6e7f7e2c085861878230367baa6d088609c5a0))
+
 # [0.8.0](https://github.com/ErikMeinders/sv2svg/compare/v0.7.0...v0.8.0) (2025-09-30)
 
 
