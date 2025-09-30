@@ -9,6 +9,8 @@ import schemdraw
 import schemdraw.elements as elm
 import schemdraw.logic as logic
 
+from .layout import LayoutEngine, LayoutConfig
+
 
 @dataclass
 class Gate:
@@ -124,6 +126,7 @@ class SVCircuit:
         self.gates: List[Gate] = []
         self.signal_driver: Dict[str, str] = {}
         self.signal_sinks: Dict[str, List[str]] = {}
+        self.layout_engine: Optional[LayoutEngine] = None
 
     def parse_file(self, filename: str) -> None:
         with open(filename, 'r') as f:
@@ -206,7 +209,7 @@ class SVCircuit:
                 self.gates.append(Gate(name=auto_name, type="NOT", inputs=[a], output=y))
 
         self._build_connectivity()
-        self._assign_levels()
+        self._setup_layout_engine()
 
     def _build_connectivity(self) -> None:
         self.signal_driver = {}
@@ -220,74 +223,100 @@ class SVCircuit:
         for s in self.outputs:
             self.signal_sinks.setdefault(s, [])
 
-    def _assign_levels(self) -> None:
-        level_cache: Dict[str, int] = {}
+    def _setup_layout_engine(self) -> None:
+        """Setup the layout engine with current circuit data."""
+        config = LayoutConfig()
+        self.layout_engine = LayoutEngine(config)
 
-        def signal_level(sig: str) -> int:
-            drv = self.signal_driver.get(sig)
-            if drv is None:
-                return 0
-            if drv.startswith("IN:"):
-                return 0
-            g = next((gg for gg in self.gates if gg.name == drv), None)
-            if g is None:
-                return 0
-            return gate_level(g)
-
-        def gate_level(g: Gate) -> int:
-            if g.name in level_cache:
-                return level_cache[g.name]
-            if not g.inputs:
-                level_cache[g.name] = 1
-                return 1
-            lvl = 1 + max(signal_level(s) for s in g.inputs)
-            level_cache[g.name] = lvl
-            return lvl
-
+        # Add gates to layout engine
         for g in self.gates:
-            g.level = gate_level(g)
+            self.layout_engine.add_gate(g.name, g.type, g.inputs, g.output)
 
-    def _reorder_levels_by_barycenter(self) -> Dict[int, List[Gate]]:
-        levels: Dict[int, List[Gate]] = {}
-        for g in self.gates:
-            levels.setdefault(g.level, []).append(g)
-        if not levels:
+        # Set connectivity
+        self.layout_engine.set_connectivity(self.signal_driver, self.signal_sinks)
+
+        # Assign levels and reorder
+        self.layout_engine.assign_levels()
+        self.layout_engine.reorder_by_barycenter(self.inputs)
+
+        # Update original gates with level information
+        for layout_gate in self.layout_engine.gates:
+            original_gate = next((g for g in self.gates if g.name == layout_gate.name), None)
+            if original_gate:
+                original_gate.level = layout_gate.level
+
+    def _get_levels(self) -> Dict[int, List[Gate]]:
+        """Get gates organized by level using layout engine results."""
+        if not self.layout_engine:
             return {}
-        max_level = max(levels)
-        for lvl in levels:
-            levels[lvl] = sorted(levels[lvl], key=lambda gg: gg.name)
-        prev_positions: Dict[str, int] = {f"IN:{name}": idx for idx, name in enumerate(sorted(self.inputs))}
 
-        def preds(g: Gate) -> List[str]:
-            ids = []
-            for s in g.inputs:
-                drv = self.signal_driver.get(s)
-                if not drv:
-                    continue
-                if isinstance(drv, str) and drv.startswith('IN:'):
-                    ids.append(drv)
-                else:
-                    ids.append(f"G:{drv}")
-            return ids
+        levels: Dict[int, List[Gate]] = {}
+        for layout_gate in self.layout_engine.gates:
+            original_gate = next((g for g in self.gates if g.name == layout_gate.name), None)
+            if original_gate:
+                levels.setdefault(original_gate.level, []).append(original_gate)
 
-        for _ in range(3):
-            for lvl in range(1, max_level + 1):
-                glist = levels.get(lvl, [])
-                if not glist:
-                    continue
-                scores = []
-                for g in glist:
-                    p = preds(g)
-                    if p:
-                        vals = [prev_positions.get(pid, 0) for pid in p]
-                        bc = sum(vals) / len(vals)
-                    else:
-                        bc = 0.0
-                    scores.append((bc, g))
-                levels[lvl] = [g for _, g in sorted(scores, key=lambda t: (t[0], t[1].name))]
-                prev_positions = {f"G:{g.name}": i for i, g in enumerate(levels[lvl])}
-            prev_positions = {f"IN:{name}": idx for idx, name in enumerate(sorted(self.inputs))}
         return levels
+
+    def _execute_routing_commands(self, d: schemdraw.Drawing, commands: List[Dict[str, Any]],
+                                bboxes: List[Dict[str, float]]) -> None:
+        """Execute routing commands generated by the layout engine."""
+
+        def hline_avoid(p1: Tuple[float, float], p2: Tuple[float, float], target_x: float):
+            x1, y = p1
+            x2, _ = p2
+            if x2 < x1:
+                x1, x2 = x2, x1
+            collided = None
+            for b in bboxes:
+                if abs(b.get('right', 1e9) - target_x) < 0.3:
+                    continue
+                if b['left'] <= x2 and b['right'] >= x1:
+                    if b['top'] <= y <= b['bottom']:
+                        collided = b
+                        break
+            if not collided:
+                d.add(elm.Line().at((x1, y)).to((x2, y)))
+                return
+            midy = (collided['top'] + collided['bottom']) / 2.0
+            detour_y = collided['top'] - 0.4 if y <= midy else collided['bottom'] + 0.4
+            d.add(elm.Line().at((x1, y)).to((x1, detour_y)))
+            d.add(elm.Line().at((x1, detour_y)).to((x2, detour_y)))
+            d.add(elm.Line().at((x2, detour_y)).to((x2, y)))
+
+        def vline_avoid(p1: Tuple[float, float], p2: Tuple[float, float]):
+            x, y1 = p1
+            x2, y2 = p2
+            if abs(x2 - x) > 1e-6:
+                d.add(elm.Line().at(p1).to(p2))
+                return
+            if y2 < y1:
+                y1, y2 = y2, y1
+            collided = None
+            for b in bboxes:
+                if b['left'] <= x <= b['right'] and not (y2 < b['top'] or y1 > b['bottom']):
+                    collided = b
+                    break
+            if not collided:
+                d.add(elm.Line().at((x, y1)).to((x, y2)))
+                return
+            left_x = collided['left'] - 0.4
+            right_x = collided['right'] + 0.4
+            detour_x = left_x if (left_x > 0.2) else right_x
+            hline_avoid((x, y1), (detour_x, y1), target_x=detour_x)
+            d.add(elm.Line().at((detour_x, y1)).to((detour_x, y2)))
+            hline_avoid((detour_x, y2), (x, y2), target_x=x)
+
+        for cmd in commands:
+            cmd_type = cmd.get('type')
+            if cmd_type == 'line':
+                d.add(elm.Line().at(cmd['from']).to(cmd['to']))
+            elif cmd_type == 'line_avoid_h':
+                hline_avoid(cmd['from'], cmd['to'], cmd.get('target_x', cmd['to'][0]))
+            elif cmd_type == 'line_avoid_v':
+                vline_avoid(cmd['from'], cmd['to'])
+            elif cmd_type == 'dot':
+                d.add(elm.Dot().at(cmd['at']))
 
     def generate_diagram(
         self,
@@ -354,11 +383,12 @@ class SVCircuit:
             d.add(elm.Dot().at(src))
             sig_source_pt[name] = src
 
-        levels: Dict[int, List[Gate]] = self._reorder_levels_by_barycenter()
-        max_level = max(levels) if levels else 0
+        max_level = max(g.level for g in self.gates) if self.gates else 0
         gate_elems: Dict[str, any] = {}
         level_y_bases: Dict[int, float] = {}
 
+        # Temporarily use existing gate layout until full integration is complete
+        levels = self._get_levels()
         for lvl in sorted(levels.keys()):
             gates_at_level = levels[lvl]
             level_y_bases[lvl] = 0.0
@@ -650,7 +680,7 @@ class SVCircuit:
             return d.add(logic.Xnor().at((x, y)).anchor('in1').label(label, 'center'))
         if t in ('NOT', 'INV'):
             elem = logic.Not().at((x, y)).anchor('in1')
-            return d.add(elem.label(label, 'center'))
+            return d.add(elem.label(label, 'left'))
         if t in ('BUF', 'BUFFER'):
             try:
                 return d.add(logic.Buffer().at((x, y)).anchor('in1').label(label, 'center'))
