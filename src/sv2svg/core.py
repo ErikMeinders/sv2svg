@@ -158,7 +158,11 @@ class SVCircuit:
             output = conns[-1]
             self.gates.append(Gate(name=gate_name, type=gate_type.upper(), inputs=inputs, output=output))
 
-        # Parse assign statements for various gate types
+        # Parse assign statements for simple two-input gate patterns
+        # NOTE: This only supports basic two-input gate operations. Complex expressions
+        # like "y = a & b | c" or multi-input operations "y = a & b & c" are NOT supported.
+        # For complex logic, use explicit gate instantiations (e.g., AND u1(a, b, y);)
+        
         # NAND: y = ~(a & b)
         for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*&\s*(\w+)\s*\)\s*;", content):
             if not any(g.output == y for g in self.gates):

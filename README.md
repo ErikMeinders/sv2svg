@@ -65,6 +65,41 @@ usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}] [--grid-x GRID
 - The parser expects synthesizable structural constructs; unsupported statements raise errors during generation.
 - Use the grid options to align gates when mixing manual annotations with generated drawings.
 
+## Supported SystemVerilog Constructs
+
+sv2svg is designed for **structural SystemVerilog** where logic is described using explicit gate instantiations. It has limited support for behavioral `assign` statements:
+
+### ✅ Fully Supported: Gate Instantiations
+```verilog
+module example(a, b, y);
+  input logic a, b;
+  output logic y;
+  
+  logic ab;
+  AND u1(a, b, ab);
+  NOT u2(ab, y);
+endmodule
+```
+
+### ⚠️ Limited Support: Simple Assign Statements
+The tool recognizes basic two-input gate patterns in `assign` statements:
+- `assign y = a & b;` → AND gate
+- `assign y = a | b;` → OR gate
+- `assign y = a ^ b;` → XOR gate
+- `assign y = ~(a & b);` → NAND gate
+- `assign y = ~(a | b);` → NOR gate
+- `assign y = ~(a ^ b);` → XNOR gate
+- `assign y = ~a;` → NOT gate
+
+### ❌ Not Supported: Complex Expressions
+The parser **cannot** handle:
+- Mixed operators: `assign y = a & b | c;`
+- Multi-input gates: `assign y = a & b & c;`
+- Nested expressions: `assign y = (a & b) | (c ^ d);`
+- Arbitrary Boolean expressions
+
+For complex logic, decompose it into explicit gate instantiations for proper visualization.
+
 ## Development workflow
 ```sh
 python3 -m venv .venv
