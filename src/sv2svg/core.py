@@ -158,10 +158,48 @@ class SVCircuit:
             output = conns[-1]
             self.gates.append(Gate(name=gate_name, type=gate_type.upper(), inputs=inputs, output=output))
 
+        # Parse assign statements for various gate types
+        # NAND: y = ~(a & b)
         for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*&\s*(\w+)\s*\)\s*;", content):
             if not any(g.output == y for g in self.gates):
                 auto_name = f"auto_nand_{len([g for g in self.gates if g.type=='NAND'])+1}"
                 self.gates.append(Gate(name=auto_name, type="NAND", inputs=[a, b], output=y))
+        
+        # AND: y = a & b
+        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*(\w+)\s*&\s*(\w+)\s*;", content):
+            if not any(g.output == y for g in self.gates):
+                auto_name = f"auto_and_{len([g for g in self.gates if g.type=='AND'])+1}"
+                self.gates.append(Gate(name=auto_name, type="AND", inputs=[a, b], output=y))
+        
+        # NOR: y = ~(a | b)
+        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*\|\s*(\w+)\s*\)\s*;", content):
+            if not any(g.output == y for g in self.gates):
+                auto_name = f"auto_nor_{len([g for g in self.gates if g.type=='NOR'])+1}"
+                self.gates.append(Gate(name=auto_name, type="NOR", inputs=[a, b], output=y))
+        
+        # OR: y = a | b
+        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*(\w+)\s*\|\s*(\w+)\s*;", content):
+            if not any(g.output == y for g in self.gates):
+                auto_name = f"auto_or_{len([g for g in self.gates if g.type=='OR'])+1}"
+                self.gates.append(Gate(name=auto_name, type="OR", inputs=[a, b], output=y))
+        
+        # XNOR: y = ~(a ^ b)
+        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*\^\s*(\w+)\s*\)\s*;", content):
+            if not any(g.output == y for g in self.gates):
+                auto_name = f"auto_xnor_{len([g for g in self.gates if g.type=='XNOR'])+1}"
+                self.gates.append(Gate(name=auto_name, type="XNOR", inputs=[a, b], output=y))
+        
+        # XOR: y = a ^ b
+        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*(\w+)\s*\^\s*(\w+)\s*;", content):
+            if not any(g.output == y for g in self.gates):
+                auto_name = f"auto_xor_{len([g for g in self.gates if g.type=='XOR'])+1}"
+                self.gates.append(Gate(name=auto_name, type="XOR", inputs=[a, b], output=y))
+        
+        # NOT/INV: y = ~a
+        for y, a in re.findall(r"assign\s+(\w+)\s*=\s*~\s*(\w+)\s*;", content):
+            if not any(g.output == y for g in self.gates):
+                auto_name = f"auto_not_{len([g for g in self.gates if g.type=='NOT'])+1}"
+                self.gates.append(Gate(name=auto_name, type="NOT", inputs=[a], output=y))
 
         self._build_connectivity()
         self._assign_levels()
