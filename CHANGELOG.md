@@ -1,3 +1,10 @@
+# [0.7.0](https://github.com/ErikMeinders/sv2svg/compare/v0.6.3...v0.7.0) (2025-09-30)
+
+
+### Features
+
+* add SystemVerilog examples for first-time users ([922883a](https://github.com/ErikMeinders/sv2svg/commit/922883a9ec6afd2ce310971854daa87a518c93dc)), closes [#3](https://github.com/ErikMeinders/sv2svg/issues/3)
+
 ## [0.6.3](https://github.com/ErikMeinders/sv2svg/compare/v0.6.2...v0.6.3) (2025-09-30)
 
 
