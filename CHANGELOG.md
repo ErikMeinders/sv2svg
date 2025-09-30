@@ -1,3 +1,10 @@
+## [0.6.3](https://github.com/ErikMeinders/sv2svg/compare/v0.6.2...v0.6.3) (2025-09-30)
+
+
+### Bug Fixes
+
+* switch to ANTHROPIC_API_KEY for GitHub Actions ([a22a3a0](https://github.com/ErikMeinders/sv2svg/commit/a22a3a0148e105cde3815f6bef5ac8fa68d1022c))
+
 ## [0.6.2](https://github.com/ErikMeinders/sv2svg/compare/v0.6.1...v0.6.2) (2025-09-30)
 
 
