@@ -1,3 +1,15 @@
+# [0.6.0](https://github.com/ErikMeinders/sv2svg/compare/v0.5.1...v0.6.0) (2025-09-30)
+
+
+### Bug Fixes
+
+* gitignore ([7b3e95b](https://github.com/ErikMeinders/sv2svg/commit/7b3e95be8b710996c8e1aa89062b33bbeac7f10f))
+
+
+### Features
+
+* add support for all logic gate types in assign statements ([d14c58a](https://github.com/ErikMeinders/sv2svg/commit/d14c58a2bb706bd281c55a831e24ba4f65c8e4d0))
+
 ## [0.5.1](https://github.com/ErikMeinders/sv2svg/compare/v0.5.0...v0.5.1) (2025-09-22)
 
 
