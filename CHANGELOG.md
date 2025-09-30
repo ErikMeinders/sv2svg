@@ -1,3 +1,10 @@
+## [0.6.1](https://github.com/ErikMeinders/sv2svg/compare/v0.6.0...v0.6.1) (2025-09-30)
+
+
+### Bug Fixes
+
+* add write permissions to claude.yml workflow ([adbfb81](https://github.com/ErikMeinders/sv2svg/commit/adbfb818d469bc52624dc176700d3901325b60bd))
+
 # [0.6.0](https://github.com/ErikMeinders/sv2svg/compare/v0.5.1...v0.6.0) (2025-09-30)
 
 
