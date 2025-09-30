@@ -1,3 +1,10 @@
+# [0.8.0](https://github.com/ErikMeinders/sv2svg/compare/v0.7.0...v0.8.0) (2025-09-30)
+
+
+### Features
+
+* implement dedicated layout engine for better grid alignment ([eaea2a9](https://github.com/ErikMeinders/sv2svg/commit/eaea2a9f819776b464aa10c4eaa3438b8be4b09e)), closes [#1](https://github.com/ErikMeinders/sv2svg/issues/1)
+
 # [0.7.0](https://github.com/ErikMeinders/sv2svg/compare/v0.6.3...v0.7.0) (2025-09-30)
 
 
