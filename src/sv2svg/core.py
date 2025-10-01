@@ -648,9 +648,19 @@ class SVCircuit:
         if rotate_svg:
             svg_text = _rotate_svg_clockwise(svg_text, bbox)
 
+        # Return early for stdout output to avoid any file creation
         if to_stdout:
+            # Clean up any spurious files that schemdraw might have created
+            # with the "-" filename (workaround for schemdraw side effects)
+            for spurious_file in ['-', ' -', '-.svg', ' -.svg']:
+                if os.path.exists(spurious_file):
+                    try:
+                        os.remove(spurious_file)
+                    except OSError:
+                        pass  # Ignore errors
             return svg_text
 
+        # Only proceed with file operations if not writing to stdout
         ext = os.path.splitext(output_filename)[1].lower()
         if rotate_svg and ext not in ('.svg', ''):
             raise ValueError("Vertical orientation is only supported for SVG outputs.")
