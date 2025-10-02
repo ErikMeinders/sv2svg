@@ -1,3 +1,10 @@
+# [0.9.0](https://github.com/ErikMeinders/sv2svg/compare/v0.8.1...v0.9.0) (2025-10-02)
+
+
+### Features
+
+* add support for complex expressions in assign statements ([9995234](https://github.com/ErikMeinders/sv2svg/commit/99952343001b98a773786c57c257c16b8852f086)), closes [#2](https://github.com/ErikMeinders/sv2svg/issues/2)
+
 ## [0.8.1](https://github.com/ErikMeinders/sv2svg/compare/v0.8.0...v0.8.1) (2025-09-30)
 
 
