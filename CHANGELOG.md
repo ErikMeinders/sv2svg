@@ -1,3 +1,10 @@
+## [0.11.1](https://github.com/ErikMeinders/sv2svg/compare/v0.11.0...v0.11.1) (2025-10-02)
+
+
+### Bug Fixes
+
+* better label placement ([b89c334](https://github.com/ErikMeinders/sv2svg/commit/b89c3342cce429a710bd53391c8960d3a4c3f4df))
+
 # [0.11.0](https://github.com/ErikMeinders/sv2svg/compare/v0.10.1...v0.11.0) (2025-10-02)
 
 
