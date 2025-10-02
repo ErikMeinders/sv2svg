@@ -18,6 +18,8 @@ def main(argv=None):
                         help='Color/line weight preset for the generated diagram.')
     parser.add_argument('--orientation', choices=['horizontal', 'vertical'], default='horizontal',
                         help='Rotate diagram layout: horizontal (left-to-right) or vertical (top-to-bottom).')
+    parser.add_argument('--table', action='store_true',
+                        help='Include truth table in the diagram.')
     parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -43,6 +45,7 @@ def main(argv=None):
                 to_stdout=True,
                 style=args.style,
                 orientation=args.orientation,
+                show_table=args.table,
             )
             if svg_data is None:
                 raise RuntimeError("Expected SVG data when writing to stdout")
@@ -57,6 +60,7 @@ def main(argv=None):
                 symmetry=(not args.no_symmetry),
                 style=args.style,
                 orientation=args.orientation,
+                show_table=args.table,
             )
             print(f"Circuit diagram saved to {out}", file=sys.stderr)
     except Exception as e:

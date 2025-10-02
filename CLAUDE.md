@@ -25,20 +25,43 @@ pip install -e .
 # Basic usage
 sv2svg input.sv -o output.svg
 
-# Test against your own modules
-python -m sv2svg.cli input.sv --style blueprint --orientation vertical -o output.svg
+# With options
+sv2svg input.sv --style blueprint --orientation vertical --table -o output.svg
+
+# Output to stdout (useful for pipelines)
+sv2svg input.sv -o - > output.svg
 
 # Check version
-python -m sv2svg.cli --version
+sv2svg --version
 ```
+
+**CLI Options**:
+- `--style {classic,blueprint,midnight,mono}` — Color scheme (default: classic)
+- `--orientation {horizontal,vertical}` — Layout direction (default: horizontal)
+- `--table` — Include truth table in diagram (max 5 inputs)
+- `--grid-x FLOAT` — Horizontal grid snapping (default: 0.5)
+- `--grid-y FLOAT` — Vertical grid snapping (default: 0.5)
+- `--no-symmetry` — Disable symmetric gate placement
+- `--input-order {alpha,ports,auto}` — Input port ordering (default: alpha)
 
 ### Testing
-The CI workflow (`.github/workflows/ci.yml`) performs an import smoke test:
 ```bash
-python -c "import sv2svg; print('Imported sv2svg OK')"
+# Install test dependencies
+pip install -e ".[test]"
+
+# Run all tests (70 tests covering parser, circuit, and CLI)
+pytest tests/ -v
+
+# Run with coverage
+pytest tests/ --cov=sv2svg --cov-report=html
 ```
 
-There are currently no formal unit tests. When adding tests, integrate them into the CI workflow.
+The test suite includes:
+- **Parser tests** (22 tests): Expression tokenization, parsing, AST to gates conversion
+- **Circuit tests** (21 tests): Module parsing, level assignment, diagram generation
+- **CLI tests** (27 tests): Command-line options, file operations, output formats
+
+See `TESTING.md` for detailed testing guide.
 
 ### Release Process
 - **Commits**: Follow [Conventional Commits](https://www.conventionalcommits.org) (e.g., `feat:`, `fix:`, `docs:`) for semantic versioning
@@ -51,19 +74,27 @@ There are currently no formal unit tests. When adding tests, integrate them into
 
 **`src/sv2svg/core.py`** — Main logic engine:
 - **`SVCircuit`**: Parses SystemVerilog, builds connectivity graph, assigns gate levels, generates Schemdraw drawing
-- **Parser**: Regex-based extraction of module ports, gate instantiations, and simple `assign` statements
+- **Expression Parser**: Full expression parser with tokenizer, AST builder, and gate converter supporting complex expressions with operator precedence and parentheses
+- **Parser**: Regex-based extraction of module ports, gate instantiations, and complex `assign` statements
 - **Level Assignment**: Topological sort to place gates in left-to-right layers
 - **Layout Algorithm**:
   - Barycenter-based gate ordering within each level (reduces wire crossings)
   - Optional symmetry mode: mirrors sibling gates around shared driver centerlines
   - Grid snapping for alignment
 - **Routing**: Wire routing with bounding-box collision avoidance (detours around gates)
+- **Labeling**: Automatic labeling of intermediate signals (declared as `logic`)
+- **Truth Table**: Circuit simulator generates truth tables for verification (max 5 inputs)
 - **Vertical Orientation**: SVG post-processing rotates horizontal layout 90° clockwise
+
+**`src/sv2svg/layout.py`** — Layout engine:
+- Gate positioning and level assignment
+- Barycenter-based reordering for wire crossing minimization
+- Routing command generation for optimized wire placement
 
 **`src/sv2svg/cli.py`** — Command-line interface:
 - Argument parsing via `argparse`
 - Delegates to `SVCircuit.parse_file()` and `SVCircuit.generate_diagram()`
-- Stdout support for pipeline integration (`-o -`)
+- Stdout support for pipeline integration (`-o -` without creating files)
 
 **`src/sv2svg/__init__.py`** — Package entry point exposing `__version__` and public API
 
@@ -78,80 +109,105 @@ There are currently no formal unit tests. When adding tests, integrate them into
 6. **Rotate (optional)** → apply SVG transformation for vertical orientation
 7. **Output** → write SVG file or stdout
 
-### Parser Limitations
+### Parser Capabilities
 
-The parser supports **structural SystemVerilog** (explicit gate instantiations) with limited `assign` statement support:
+The parser supports **structural SystemVerilog** (explicit gate instantiations) with full expression parsing for `assign` statements:
 
 #### ✅ Fully Supported
-- Gate instantiations: `AND u1(a, b, y);`
-- All common logic gates: AND, OR, NAND, NOR, XOR, XNOR, NOT/INV, BUF/BUFFER
+- **Gate instantiations**: `AND u1(a, b, y);`
+- **All common logic gates**: AND, OR, NAND, NOR, XOR, XNOR, NOT/INV, BUF/BUFFER
+- **Complex assign expressions** with full operator precedence and parentheses:
+  - Simple: `assign y = a & b;` → AND gate
+  - Complex: `assign y = a | b & c;` → OR(a, AND(b,c)) with proper precedence
+  - Parentheses: `assign y = (a | b) & c;` → AND(OR(a,b), c)
+  - Multi-operator: `assign y = a & b | c & d;` → OR(AND(a,b), AND(c,d))
+  - Negation patterns: `assign y = ~(a & b | c);` → NOR gate with intermediate gates
+  - Multi-input: `assign y = a & b & c;` → cascaded AND gates with auto-generated intermediate signals
 
-#### ⚠️ Limited Support
-- **Simple two-input assign patterns only**:
-  - `assign y = a & b;` → AND
-  - `assign y = a | b;` → OR
-  - `assign y = ~(a & b);` → NAND
-  - `assign y = ~a;` → NOT
-  - (See `core.py:161-206` for full list)
+**Expression Parser** (`core.py:26-303`):
+- **Tokenizer**: Converts expressions to tokens (identifiers, operators, parentheses)
+- **Parser**: Builds AST with correct operator precedence (NOT > AND > OR/XOR)
+- **AST Converter**: Generates gate instances with intermediate signals (`_expr_*`)
 
 #### ❌ Not Supported
-- Mixed operators: `assign y = a & b | c;`
-- Multi-input operations: `assign y = a & b & c;`
-- Nested expressions: `assign y = (a & b) | (c ^ d);`
-- **For complex logic, use explicit gate instantiations**
+- Ternary operators: `assign y = sel ? a : b;`
+- Bit operations: `assign y = a[0] & b[1];`
+- Arithmetic: `assign y = a + b;`
+- For these, use explicit gate instantiations or different HDL constructs
 
 ### Routing and Collision Avoidance
 
-The routing algorithm (`core.py:450-613`) uses two key strategies:
+The routing algorithm (`core.py:612-925`) uses two key strategies:
 
 1. **Horizontal line avoidance** (`hline_avoid`): Detours around gate bounding boxes
 2. **Vertical trunk allocation** (`used_verticals`): Tracks occupied vertical bus lines to prevent overlap
 
 When modifying routing logic:
 - **Primary inputs** use a vertical "trunk" that branches to multiple gates
-- **Internal signals** use a midpoint vertical with horizontal branches
+- **Internal signals** use a midpoint vertical with horizontal branches, auto-labeled if declared as `logic` (`core.py:908-913`)
 - **Commutative gates** (AND, OR, XOR, etc.) have their inputs auto-sorted by Y-coordinate to minimize crossings
 - Grid snapping (`--grid-x`, `--grid-y`) happens **after** coordinate calculation
 
+### Truth Table Generation
+
+When `--table` is specified, the circuit simulator (`core.py:535-606`) generates a truth table:
+- **Simulation**: Evaluates circuit for all input combinations (max 2^5 = 32 rows for 5 inputs)
+- **Gate evaluation**: Level-ordered evaluation with support for all standard logic gates
+- **Display**: Table positioned to the right of circuit with sorted inputs and outputs
+- **Limitation**: Only circuits with ≤5 inputs generate tables (larger would be too large)
+
 ### Style System
 
-`STYLE_PRESETS` in `core.py:22-39` defines color schemes:
-- `classic` — Dark blue-gray
+`STYLE_PRESETS` in `core.py:306-327` defines color schemes with font size tuning:
+- `classic` — Dark blue-gray (default)
 - `blueprint` — NASA blue
 - `midnight` — Cyan on dark
 - `mono` — Grayscale
 
-Each preset configures `schemdraw.Drawing.config()` parameters (`color`, `lw`, `fontsize`) and module label color.
+Each preset configures:
+- **Base settings**: `color`, `lw` (line width), `fontsize` (10pt for labels)
+- **Module label color**: Title text color
+- **Gate label fontsize**: Smaller font (9pt) for gate names to fit better inside gates
+
+**Font Sizes**:
+- Module labels: 10pt
+- Port labels: 10pt
+- Gate labels: 9pt (configurable per style)
+- Wire labels (intermediate signals): 8pt
+- Truth table: 9pt headers, 8pt values
 
 ## Common Development Patterns
 
 ### Adding a New Gate Type
-1. Update `_add_gate()` in `core.py:636-659` to handle the new gate type string
+1. Update `_add_gate()` in `core.py:942-965` to handle the new gate type string
 2. Map to appropriate Schemdraw `logic.*` class or fallback to `elm.Box`
-3. If adding assign statement support, add regex pattern in `parse_file()` (lines 161-206)
+3. Apply gate label fontsize parameter for consistent styling
+4. If adding assign statement support, update the expression parser's gate type mapping
 
 ### Modifying Layout Algorithm
-- **Level assignment**: See `_assign_levels()` (lines 223-248)
-- **Barycenter ordering**: See `_reorder_levels_by_barycenter()` (lines 250-290)
-- **Symmetry logic**: See `generate_diagram()` symmetry block (lines 373-405)
+- **Level assignment**: See `layout.py:LayoutEngine.assign_levels()`
+- **Barycenter ordering**: See `layout.py:LayoutEngine.reorder_by_barycenter()`
+- **Symmetry logic**: See `generate_diagram()` symmetry block (`core.py:~680-710`)
 
 ### Debugging Routing Issues
-- Inspect `bboxes` list (generated at line 432) for gate collision regions
+- Inspect `bboxes` list for gate collision regions
 - Add temporary `print()` statements in `hline_avoid()` or `vline_avoid()`
 - Use `--grid-x 0 --grid-y 0` to disable snapping and see raw coordinates
+- Check intermediate signal labels to verify connectivity
 
 ### Extending CLI Options
-1. Add argument to `cli.py` parser (lines 8-22)
-2. Pass through to `SVCircuit.generate_diagram()` call (lines 34-43)
-3. Update `SVCircuit.generate_diagram()` signature in `core.py` (line 292)
+1. Add argument to `cli.py` parser (lines 8-23)
+2. Pass through to `SVCircuit.generate_diagram()` call in both stdout and file paths
+3. Update `SVCircuit.generate_diagram()` signature in `core.py` (line 595)
 
 ## Project Constraints
 
 - **Python 3.9+** required (`pyproject.toml:14`)
-- **Single dependency**: `schemdraw>=0.16` (no additional test frameworks yet)
+- **Runtime dependency**: `schemdraw>=0.16`
+- **Test dependencies**: `pytest>=7.0`, `pytest-cov>=4.0` (install with `pip install -e ".[test]"`)
 - **No linting/formatting tools configured** — maintain existing code style (4-space indents, snake_case)
-- **Regex-based parser** — not a full HDL parser; only handles simple structural constructs
-- **CI is minimal** — only import smoke test; expand as project grows
+- **Expression parser** — full tokenizer/parser/AST for complex expressions, but limited to boolean logic
+- **CI workflow** — runs full test suite (70 tests) on push/PR
 
 ## Version Management
 
