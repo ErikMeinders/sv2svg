@@ -3,7 +3,8 @@ import os
 import re
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Tuple
+from enum import Enum
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import schemdraw
 import schemdraw.elements as elm
@@ -19,6 +20,287 @@ class Gate:
     inputs: List[str]
     output: str
     level: int = 0
+
+
+# Expression Parser for complex assign statements
+class TokenType(Enum):
+    """Token types for expression parsing."""
+    IDENTIFIER = 'IDENTIFIER'
+    AND = 'AND'
+    OR = 'OR'
+    XOR = 'XOR'
+    NOT = 'NOT'
+    LPAREN = 'LPAREN'
+    RPAREN = 'RPAREN'
+    EOF = 'EOF'
+
+
+@dataclass
+class Token:
+    """Token for expression parsing."""
+    type: TokenType
+    value: str
+
+
+class ExprNode:
+    """Base class for expression AST nodes."""
+    pass
+
+
+@dataclass
+class IdentifierNode(ExprNode):
+    """Leaf node representing a signal identifier."""
+    name: str
+
+
+@dataclass
+class UnaryOpNode(ExprNode):
+    """Unary operation node (NOT)."""
+    op: str  # '~'
+    operand: ExprNode
+
+
+@dataclass
+class BinaryOpNode(ExprNode):
+    """Binary operation node (AND, OR, XOR)."""
+    op: str  # '&', '|', '^'
+    left: ExprNode
+    right: ExprNode
+
+
+class ExpressionTokenizer:
+    """Tokenizer for SystemVerilog expressions."""
+
+    def __init__(self, expr: str):
+        self.expr = expr.strip()
+        self.pos = 0
+
+    def tokenize(self) -> List[Token]:
+        """Tokenize the expression."""
+        tokens = []
+        while self.pos < len(self.expr):
+            ch = self.expr[self.pos]
+
+            # Skip whitespace
+            if ch.isspace():
+                self.pos += 1
+                continue
+
+            # Operators and parentheses
+            if ch == '&':
+                tokens.append(Token(TokenType.AND, '&'))
+                self.pos += 1
+            elif ch == '|':
+                tokens.append(Token(TokenType.OR, '|'))
+                self.pos += 1
+            elif ch == '^':
+                tokens.append(Token(TokenType.XOR, '^'))
+                self.pos += 1
+            elif ch == '~':
+                tokens.append(Token(TokenType.NOT, '~'))
+                self.pos += 1
+            elif ch == '(':
+                tokens.append(Token(TokenType.LPAREN, '('))
+                self.pos += 1
+            elif ch == ')':
+                tokens.append(Token(TokenType.RPAREN, ')'))
+                self.pos += 1
+            # Identifiers
+            elif ch.isalpha() or ch == '_':
+                start = self.pos
+                while self.pos < len(self.expr) and (self.expr[self.pos].isalnum() or self.expr[self.pos] == '_'):
+                    self.pos += 1
+                tokens.append(Token(TokenType.IDENTIFIER, self.expr[start:self.pos]))
+            else:
+                # Unknown character - skip it
+                self.pos += 1
+
+        tokens.append(Token(TokenType.EOF, ''))
+        return tokens
+
+
+class ExpressionParser:
+    """Recursive descent parser for SystemVerilog expressions.
+
+    Grammar (with precedence):
+        expr     -> xor_expr
+        xor_expr -> or_expr ('^' or_expr)*
+        or_expr  -> and_expr ('|' and_expr)*
+        and_expr -> unary ('&' unary)*
+        unary    -> '~' unary | primary
+        primary  -> IDENTIFIER | '(' expr ')'
+
+    Precedence (highest to lowest):
+        1. Parentheses ()
+        2. NOT (~)
+        3. AND (&)
+        4. OR (|), XOR (^)
+    """
+
+    def __init__(self, tokens: List[Token]):
+        self.tokens = tokens
+        self.pos = 0
+
+    def current_token(self) -> Token:
+        """Get current token."""
+        return self.tokens[self.pos] if self.pos < len(self.tokens) else Token(TokenType.EOF, '')
+
+    def advance(self):
+        """Move to next token."""
+        if self.pos < len(self.tokens):
+            self.pos += 1
+
+    def parse(self) -> ExprNode:
+        """Parse the expression."""
+        return self.expr()
+
+    def expr(self) -> ExprNode:
+        """Parse expression: xor_expr"""
+        return self.xor_expr()
+
+    def xor_expr(self) -> ExprNode:
+        """Parse XOR expression: or_expr ('^' or_expr)*"""
+        left = self.or_expr()
+        while self.current_token().type == TokenType.XOR:
+            self.advance()
+            right = self.or_expr()
+            left = BinaryOpNode('^', left, right)
+        return left
+
+    def or_expr(self) -> ExprNode:
+        """Parse OR expression: and_expr ('|' and_expr)*"""
+        left = self.and_expr()
+        while self.current_token().type == TokenType.OR:
+            self.advance()
+            right = self.and_expr()
+            left = BinaryOpNode('|', left, right)
+        return left
+
+    def and_expr(self) -> ExprNode:
+        """Parse AND expression: unary ('&' unary)*"""
+        left = self.unary()
+        while self.current_token().type == TokenType.AND:
+            self.advance()
+            right = self.unary()
+            left = BinaryOpNode('&', left, right)
+        return left
+
+    def unary(self) -> ExprNode:
+        """Parse unary expression: '~' unary | primary"""
+        if self.current_token().type == TokenType.NOT:
+            self.advance()
+            operand = self.unary()
+            return UnaryOpNode('~', operand)
+        return self.primary()
+
+    def primary(self) -> ExprNode:
+        """Parse primary expression: IDENTIFIER | '(' expr ')'"""
+        token = self.current_token()
+
+        if token.type == TokenType.IDENTIFIER:
+            self.advance()
+            return IdentifierNode(token.value)
+
+        if token.type == TokenType.LPAREN:
+            self.advance()
+            node = self.expr()
+            if self.current_token().type == TokenType.RPAREN:
+                self.advance()
+            return node
+
+        # Error case - return dummy identifier
+        return IdentifierNode('error')
+
+
+class ASTtoGatesConverter:
+    """Converts expression AST to Gate objects with intermediate signals."""
+
+    def __init__(self, output_signal: str, existing_gates: List[Gate]):
+        self.output_signal = output_signal
+        self.existing_gates = existing_gates
+        self.gates: List[Gate] = []
+        self.signal_counter = 0
+        self.internal_signals: Set[str] = set()
+
+    def _get_unique_signal_name(self, prefix: str) -> str:
+        """Generate a unique intermediate signal name."""
+        self.signal_counter += 1
+        name = f"_expr_{prefix}_{self.signal_counter}"
+        self.internal_signals.add(name)
+        return name
+
+    def _get_gate_name(self, gate_type: str) -> str:
+        """Generate a unique gate name."""
+        existing_count = len([g for g in self.existing_gates + self.gates if g.type == gate_type])
+        return f"auto_{gate_type.lower()}_{existing_count + 1}"
+
+    def convert(self, node: ExprNode, is_root: bool = True) -> str:
+        """Convert AST node to gates, returning the output signal name.
+
+        Args:
+            node: The AST node to convert
+            is_root: True if this is the root node (output should use target signal)
+
+        Returns:
+            The signal name that holds the result of this node
+        """
+        if isinstance(node, IdentifierNode):
+            return node.name
+
+        elif isinstance(node, UnaryOpNode):
+            # Check for NAND, NOR, XNOR patterns: ~(a op b)
+            if isinstance(node.operand, BinaryOpNode):
+                # This is a pattern like ~(a & b) -> NAND
+                binary_node = node.operand
+                left_sig = self.convert(binary_node.left, is_root=False)
+                right_sig = self.convert(binary_node.right, is_root=False)
+                output_sig = self.output_signal if is_root else self._get_unique_signal_name('n' + binary_node.op.replace('&', 'and').replace('|', 'or').replace('^', 'xor'))
+
+                # Map operator to negated gate type
+                gate_type_map = {'&': 'NAND', '|': 'NOR', '^': 'XNOR'}
+                gate_type = gate_type_map.get(binary_node.op, 'NAND')
+
+                gate = Gate(
+                    name=self._get_gate_name(gate_type),
+                    type=gate_type,
+                    inputs=[left_sig, right_sig],
+                    output=output_sig
+                )
+                self.gates.append(gate)
+                return output_sig
+            else:
+                # Regular NOT operation
+                input_sig = self.convert(node.operand, is_root=False)
+                output_sig = self.output_signal if is_root else self._get_unique_signal_name('not')
+                gate = Gate(
+                    name=self._get_gate_name('NOT'),
+                    type='NOT',
+                    inputs=[input_sig],
+                    output=output_sig
+                )
+                self.gates.append(gate)
+                return output_sig
+
+        elif isinstance(node, BinaryOpNode):
+            # Binary operation (AND, OR, XOR)
+            left_sig = self.convert(node.left, is_root=False)
+            right_sig = self.convert(node.right, is_root=False)
+            output_sig = self.output_signal if is_root else self._get_unique_signal_name(node.op.replace('&', 'and').replace('|', 'or').replace('^', 'xor'))
+
+            # Map operator to gate type
+            gate_type_map = {'&': 'AND', '|': 'OR', '^': 'XOR'}
+            gate_type = gate_type_map.get(node.op, 'AND')
+
+            gate = Gate(
+                name=self._get_gate_name(gate_type),
+                type=gate_type,
+                inputs=[left_sig, right_sig],
+                output=output_sig
+            )
+            self.gates.append(gate)
+            return output_sig
+
+        return 'error'
 
 
 STYLE_PRESETS: Dict[str, Dict[str, Any]] = {
@@ -161,52 +443,40 @@ class SVCircuit:
             output = conns[-1]
             self.gates.append(Gate(name=gate_name, type=gate_type.upper(), inputs=inputs, output=output))
 
-        # Parse assign statements for simple two-input gate patterns
-        # NOTE: This only supports basic two-input gate operations. Complex expressions
-        # like "y = a & b | c" or multi-input operations "y = a & b & c" are NOT supported.
-        # For complex logic, use explicit gate instantiations (e.g., AND u1(a, b, y);)
-        
-        # NAND: y = ~(a & b)
-        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*&\s*(\w+)\s*\)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_nand_{len([g for g in self.gates if g.type=='NAND'])+1}"
-                self.gates.append(Gate(name=auto_name, type="NAND", inputs=[a, b], output=y))
-        
-        # AND: y = a & b
-        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*(\w+)\s*&\s*(\w+)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_and_{len([g for g in self.gates if g.type=='AND'])+1}"
-                self.gates.append(Gate(name=auto_name, type="AND", inputs=[a, b], output=y))
-        
-        # NOR: y = ~(a | b)
-        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*\|\s*(\w+)\s*\)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_nor_{len([g for g in self.gates if g.type=='NOR'])+1}"
-                self.gates.append(Gate(name=auto_name, type="NOR", inputs=[a, b], output=y))
-        
-        # OR: y = a | b
-        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*(\w+)\s*\|\s*(\w+)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_or_{len([g for g in self.gates if g.type=='OR'])+1}"
-                self.gates.append(Gate(name=auto_name, type="OR", inputs=[a, b], output=y))
-        
-        # XNOR: y = ~(a ^ b)
-        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*~\s*\(\s*(\w+)\s*\^\s*(\w+)\s*\)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_xnor_{len([g for g in self.gates if g.type=='XNOR'])+1}"
-                self.gates.append(Gate(name=auto_name, type="XNOR", inputs=[a, b], output=y))
-        
-        # XOR: y = a ^ b
-        for y, a, b in re.findall(r"assign\s+(\w+)\s*=\s*(\w+)\s*\^\s*(\w+)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_xor_{len([g for g in self.gates if g.type=='XOR'])+1}"
-                self.gates.append(Gate(name=auto_name, type="XOR", inputs=[a, b], output=y))
-        
-        # NOT/INV: y = ~a
-        for y, a in re.findall(r"assign\s+(\w+)\s*=\s*~\s*(\w+)\s*;", content):
-            if not any(g.output == y for g in self.gates):
-                auto_name = f"auto_not_{len([g for g in self.gates if g.type=='NOT'])+1}"
-                self.gates.append(Gate(name=auto_name, type="NOT", inputs=[a], output=y))
+        # Parse assign statements using expression parser
+        # This supports complex expressions with operator precedence and parentheses:
+        # - Simple: y = a & b
+        # - Complex: y = a | b & c (AND has higher precedence)
+        # - Parentheses: y = (a | b) & c
+        # - Multi-operator: y = a & b | c & d
+        # - Negation: y = ~(a & b | c)
+
+        for match in re.findall(r"assign\s+(\w+)\s*=\s*([^;]+);", content):
+            output_sig = match[0].strip()
+            expr_str = match[1].strip()
+
+            # Skip if this output is already driven by an explicit gate
+            if any(g.output == output_sig for g in self.gates):
+                continue
+
+            try:
+                # Tokenize and parse the expression
+                tokenizer = ExpressionTokenizer(expr_str)
+                tokens = tokenizer.tokenize()
+                parser = ExpressionParser(tokens)
+                ast = parser.parse()
+
+                # Convert AST to gates
+                converter = ASTtoGatesConverter(output_sig, self.gates)
+                converter.convert(ast, is_root=True)
+
+                # Add generated gates and internal signals
+                self.gates.extend(converter.gates)
+                self.internal_signals.update(converter.internal_signals)
+            except Exception:
+                # If parsing fails, skip this assign statement
+                # (could be an unsupported construct)
+                pass
 
         self._build_connectivity()
         self._setup_layout_engine()
