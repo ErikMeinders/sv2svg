@@ -1,3 +1,10 @@
+# [0.10.0](https://github.com/ErikMeinders/sv2svg/compare/v0.9.0...v0.10.0) (2025-10-02)
+
+
+### Features
+
+* added test framework for development ([7269e27](https://github.com/ErikMeinders/sv2svg/commit/7269e2735c51776af6710a911102996bd700d93f))
+
 # [0.9.0](https://github.com/ErikMeinders/sv2svg/compare/v0.8.1...v0.9.0) (2025-10-02)
 
 
