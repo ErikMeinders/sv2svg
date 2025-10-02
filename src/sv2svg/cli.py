@@ -31,24 +31,33 @@ def main(argv=None):
     circ = SVCircuit()
     try:
         circ.parse_file(args.input_file)
-        svg_data = circ.generate_diagram(
-            out,
-            input_order=args.input_order,
-            grid_x=args.grid_x,
-            grid_y=args.grid_y,
-            symmetry=(not args.no_symmetry),
-            to_stdout=to_stdout,
-            style=args.style,
-            orientation=args.orientation,
-        )
 
         if to_stdout:
-            # Write SVG data to stdout as text
+            # No output file needed for stdout
+            svg_data = circ.generate_diagram(
+                output_filename=None,
+                input_order=args.input_order,
+                grid_x=args.grid_x,
+                grid_y=args.grid_y,
+                symmetry=(not args.no_symmetry),
+                to_stdout=True,
+                style=args.style,
+                orientation=args.orientation,
+            )
             if svg_data is None:
                 raise RuntimeError("Expected SVG data when writing to stdout")
             sys.stdout.write(svg_data)
             sys.stdout.flush()
         else:
+            circ.generate_diagram(
+                output_filename=out,
+                input_order=args.input_order,
+                grid_x=args.grid_x,
+                grid_y=args.grid_y,
+                symmetry=(not args.no_symmetry),
+                style=args.style,
+                orientation=args.orientation,
+            )
             print(f"Circuit diagram saved to {out}", file=sys.stderr)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

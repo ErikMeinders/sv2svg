@@ -590,7 +590,7 @@ class SVCircuit:
 
     def generate_diagram(
         self,
-        output_filename: str,
+        output_filename: Optional[str] = None,
         input_order: str = 'alpha',
         grid_x: float = 0.5,
         grid_y: float = 0.5,
@@ -918,7 +918,8 @@ class SVCircuit:
         if rotate_svg:
             svg_text = _rotate_svg_clockwise(svg_text, bbox)
 
-        if to_stdout:
+        # Return SVG data if no output file specified or stdout requested
+        if to_stdout or output_filename is None:
             return svg_text
 
         ext = os.path.splitext(output_filename)[1].lower()
