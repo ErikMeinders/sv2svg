@@ -809,6 +809,7 @@ class SVCircuit:
         max_level = max(g.level for g in self.gates) if self.gates else 0
         gate_elems: Dict[str, any] = {}
         level_y_bases: Dict[int, float] = {}
+        max_y = input_y0  # Track maximum Y coordinate for truth table positioning
 
         # Temporarily use existing gate layout until full integration is complete
         levels = self._get_levels()
@@ -864,6 +865,7 @@ class SVCircuit:
                 y = ty if last_y is None else max(ty, last_y + y_step)
                 y = snap(y, grid_y)
                 last_y = y
+                max_y = max(max_y, y)  # Track maximum Y coordinate
                 x = left_margin + x_step * float(lvl)
                 elem = self._add_gate(d, g, x, y, gate_label_fontsize, fill_gates, style_settings)
                 if hasattr(elem, 'out'):
@@ -878,6 +880,7 @@ class SVCircuit:
         for idx, name in enumerate(sorted(self.outputs)):
             src = sig_source_pt.get(name)
             y = src[1] if src else (idx * y_step)
+            max_y = max(max_y, y)  # Track maximum Y coordinate including outputs
             # Apply styling for output signal
             output_line_kwargs = {}
             output_ls = get_line_style(name)
@@ -1111,9 +1114,9 @@ class SVCircuit:
         if show_table:
             truth_table = self._generate_truth_table()
             if truth_table:
-                # Position table to the right of the circuit
-                table_x = out_x + 2.0
-                table_y = input_y0
+                # Position table below the circuit, left aligned
+                table_x = left_margin
+                table_y = max_y + 3.0  # Position below circuit with spacing
 
                 sorted_inputs = sorted(self.inputs)
                 sorted_outputs = sorted(self.outputs)
@@ -1184,23 +1187,23 @@ class SVCircuit:
             return elem
 
         if t == 'NAND':
-            return d.add(maybe_fill(logic.Nand().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Nand().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
         if t == 'AND':
-            return d.add(maybe_fill(logic.And().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.And().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
         if t == 'OR':
-            return d.add(maybe_fill(logic.Or().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Or().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
         if t == 'NOR':
-            return d.add(maybe_fill(logic.Nor().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Nor().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
         if t == 'XOR':
-            return d.add(maybe_fill(logic.Xor().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Xor().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
         if t == 'XNOR':
-            return d.add(maybe_fill(logic.Xnor().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Xnor().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
         if t in ('NOT', 'INV'):
             elem = maybe_fill(logic.Not().at((x, y)).anchor('in1'))
-            return d.add(elem.label(label, 'center', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t in ('BUF', 'BUFFER'):
             try:
-                return d.add(maybe_fill(logic.Buffer().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
+                return d.add(maybe_fill(logic.Buffer().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
             except Exception:
-                return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"BUF:{label}", 'center', fontsize=fontsize))
-        return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"{t}:{label}", 'center', fontsize=fontsize))
+                return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"BUF:{label}", 'bottom', fontsize=fontsize))
+        return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"{t}:{label}", 'bottom', fontsize=fontsize))

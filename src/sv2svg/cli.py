@@ -32,7 +32,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     out = args.output
-    to_stdout = (out == '-')
+    to_stdout = (out and out.strip() == '-')
 
     if not out:
         base = os.path.splitext(args.input_file)[0]
