@@ -324,6 +324,27 @@ STYLE_PRESETS: Dict[str, Dict[str, Any]] = {
         "module_label_color": "#2d3436",
         "gate_label_fontsize": 9,
     },
+    "vibrant": {
+        "config": {"color": "#34495e", "lw": 1.2, "fontsize": 10},
+        "module_label_color": "#2980b9",
+        "gate_label_fontsize": 9,
+        "gate_fills": {
+            "AND": "#e74c3c",
+            "NAND": "#e74c3c",
+            "OR": "#3498db",
+            "NOR": "#3498db",
+            "XOR": "#f39c12",
+            "XNOR": "#f39c12",
+            "NOT": "#9b59b6",
+            "BUF": "#1abc9c",
+        },
+    },
+    "dark": {
+        "config": {"color": "#ecf0f1", "lw": 1.2, "fontsize": 10},
+        "module_label_color": "#3498db",
+        "gate_label_fontsize": 9,
+        "background": "#2c3e50",
+    },
 }
 
 
@@ -676,6 +697,10 @@ class SVCircuit:
         style: str = 'classic',
         orientation: str = 'horizontal',
         show_table: bool = False,
+        show_caption: bool = True,
+        fill_gates: bool = False,
+        signal_styles: bool = False,
+        fanout_wires: bool = False,
     ) -> Optional[str]:
         d = schemdraw.Drawing(unit=1.2)
         style_settings = STYLE_PRESETS.get(style, STYLE_PRESETS['classic'])
@@ -685,12 +710,13 @@ class SVCircuit:
         d.config(**config_kwargs)
         module_label_color = style_settings.get('module_label_color', '#1f618d')
         gate_label_fontsize = style_settings.get('gate_label_fontsize', 9)
-        d.add(
-            elm.Label()
-            .label(f"Module: {self.module_name}")
-            .at((0, -1))
-            .color(module_label_color)
-        )
+        if show_caption:
+            d.add(
+                elm.Label()
+                .label(f"Module: {self.module_name}")
+                .at((0, -1))
+                .color(module_label_color)
+            )
         if orientation not in {'horizontal', 'vertical'}:
             orientation = 'horizontal'
         rotate_svg = (orientation == 'vertical')
@@ -702,6 +728,46 @@ class SVCircuit:
             if step and step > 0:
                 return round(val / step) * step
             return val
+
+        # Calculate signal fan-out (number of gates each signal drives)
+        signal_fanout: Dict[str, int] = {}
+        for g in self.gates:
+            for input_sig in g.inputs:
+                signal_fanout[input_sig] = signal_fanout.get(input_sig, 0) + 1
+
+        # Determine if a signal is intermediate (declared as logic/wire)
+        intermediate_signals = set()
+        for g in self.gates:
+            out_sig = g.output
+            if out_sig not in self.inputs and out_sig not in self.outputs:
+                intermediate_signals.add(out_sig)
+
+        # Helper functions for line styling
+        def get_line_style(signal: str) -> str:
+            """Get line style based on signal type when signal_styles enabled"""
+            if not signal_styles:
+                return '-'  # solid (default)
+            if signal in self.inputs or signal in self.outputs:
+                return '-'  # solid for primary I/O
+            elif signal in intermediate_signals:
+                return '--'  # dashed for intermediate signals
+            return '-'
+
+        def get_line_width(signal: str) -> float:
+            """Get line width based on fan-out when fanout_wires enabled"""
+            if not fanout_wires:
+                return None  # use default from style
+            fanout = signal_fanout.get(signal, 0)
+            if fanout == 0:
+                return None  # use default
+            elif fanout == 1:
+                return 1.0  # thin for single load
+            elif fanout == 2:
+                return 1.3  # medium for dual load
+            elif fanout <= 4:
+                return 1.6  # thicker for moderate fan-out
+            else:
+                return 2.0  # thick for high fan-out
 
         input_y0 = 0.0
         sig_source_pt: Dict[str, Tuple[float, float]] = {}
@@ -727,7 +793,15 @@ class SVCircuit:
         n_inputs = len(ordered_inputs)
         for idx, name in enumerate(ordered_inputs):
             y = input_y0 + (n_inputs - 1 - idx) * y_step
-            d.add(elm.Line().at((left_margin, y)).to((left_margin + 0.8, y)).label(name, 'left'))
+            # Apply styling for input signal
+            input_line_kwargs = {}
+            input_ls = get_line_style(name)
+            input_lw = get_line_width(name)
+            if input_ls != '-':
+                input_line_kwargs['ls'] = input_ls
+            if input_lw is not None:
+                input_line_kwargs['lw'] = input_lw
+            d.add(elm.Line(**input_line_kwargs).at((left_margin, y)).to((left_margin + 0.8, y)).label(name, 'left'))
             src = (left_margin + 0.8, y)
             d.add(elm.Dot().at(src))
             sig_source_pt[name] = src
@@ -791,7 +865,7 @@ class SVCircuit:
                 y = snap(y, grid_y)
                 last_y = y
                 x = left_margin + x_step * float(lvl)
-                elem = self._add_gate(d, g, x, y, gate_label_fontsize)
+                elem = self._add_gate(d, g, x, y, gate_label_fontsize, fill_gates, style_settings)
                 if hasattr(elem, 'out'):
                     out_pt = elem.out
                 else:
@@ -804,7 +878,15 @@ class SVCircuit:
         for idx, name in enumerate(sorted(self.outputs)):
             src = sig_source_pt.get(name)
             y = src[1] if src else (idx * y_step)
-            d.add(elm.Line().at((out_x - 0.8, y)).to((out_x, y)).label(name, 'right'))
+            # Apply styling for output signal
+            output_line_kwargs = {}
+            output_ls = get_line_style(name)
+            output_lw = get_line_width(name)
+            if output_ls != '-':
+                output_line_kwargs['ls'] = output_ls
+            if output_lw is not None:
+                output_line_kwargs['lw'] = output_lw
+            d.add(elm.Line(**output_line_kwargs).at((out_x - 0.8, y)).to((out_x, y)).label(name, 'right'))
             d.add(elm.Dot().at((out_x - 0.8, y)))
             output_anchor[name] = (out_x - 0.8, y)
 
@@ -827,7 +909,7 @@ class SVCircuit:
             except Exception:
                 continue
 
-        def hline_avoid(p1: Tuple[float, float], p2: Tuple[float, float], target_x: float):
+        def hline_avoid(p1: Tuple[float, float], p2: Tuple[float, float], target_x: float, signal: str = None):
             x1, y = p1
             x2, _ = p2
             if x2 < x1:
@@ -840,20 +922,38 @@ class SVCircuit:
                     if b['top'] <= y <= b['bottom']:
                         collided = b
                         break
+            # Apply line styling based on signal
+            line_kwargs = {}
+            if signal:
+                ls = get_line_style(signal)
+                lw = get_line_width(signal)
+                if ls != '-':
+                    line_kwargs['ls'] = ls
+                if lw is not None:
+                    line_kwargs['lw'] = lw
             if not collided:
-                d.add(elm.Line().at((x1, y)).to((x2, y)))
+                d.add(elm.Line(**line_kwargs).at((x1, y)).to((x2, y)))
                 return
             midy = (collided['top'] + collided['bottom']) / 2.0
             detour_y = collided['top'] - 0.4 if y <= midy else collided['bottom'] + 0.4
-            d.add(elm.Line().at((x1, y)).to((x1, detour_y)))
-            d.add(elm.Line().at((x1, detour_y)).to((x2, detour_y)))
-            d.add(elm.Line().at((x2, detour_y)).to((x2, y)))
+            d.add(elm.Line(**line_kwargs).at((x1, y)).to((x1, detour_y)))
+            d.add(elm.Line(**line_kwargs).at((x1, detour_y)).to((x2, detour_y)))
+            d.add(elm.Line(**line_kwargs).at((x2, detour_y)).to((x2, y)))
 
-        def vline_avoid(p1: Tuple[float, float], p2: Tuple[float, float]):
+        def vline_avoid(p1: Tuple[float, float], p2: Tuple[float, float], signal: str = None):
             x, y1 = p1
             x2, y2 = p2
+            # Apply line styling based on signal
+            line_kwargs = {}
+            if signal:
+                ls = get_line_style(signal)
+                lw = get_line_width(signal)
+                if ls != '-':
+                    line_kwargs['ls'] = ls
+                if lw is not None:
+                    line_kwargs['lw'] = lw
             if abs(x2 - x) > 1e-6:
-                d.add(elm.Line().at(p1).to(p2))
+                d.add(elm.Line(**line_kwargs).at(p1).to(p2))
                 return
             if y2 < y1:
                 y1, y2 = y2, y1
@@ -863,14 +963,14 @@ class SVCircuit:
                     collided = b
                     break
             if not collided:
-                d.add(elm.Line().at((x, y1)).to((x, y2)))
+                d.add(elm.Line(**line_kwargs).at((x, y1)).to((x, y2)))
                 return
             left_x = collided['left'] - 0.4
             right_x = collided['right'] + 0.4
             detour_x = left_x if (left_x > left_margin + 0.2) else right_x
-            hline_avoid((x, y1), (detour_x, y1), target_x=detour_x)
-            d.add(elm.Line().at((detour_x, y1)).to((detour_x, y2)))
-            hline_avoid((detour_x, y2), (x, y2), target_x=x)
+            hline_avoid((x, y1), (detour_x, y1), target_x=detour_x, signal=signal)
+            d.add(elm.Line(**line_kwargs).at((detour_x, y1)).to((detour_x, y2)))
+            hline_avoid((detour_x, y2), (x, y2), target_x=x, signal=signal)
 
         def is_commutative(t: str) -> bool:
             t = t.upper()
@@ -916,19 +1016,28 @@ class SVCircuit:
             if not dst_points:
                 continue
             is_primary_input = sig in self.inputs
+            # Get line styling for this signal
+            sig_line_kwargs = {}
+            sig_ls = get_line_style(sig)
+            sig_lw = get_line_width(sig)
+            if sig_ls != '-':
+                sig_line_kwargs['ls'] = sig_ls
+            if sig_lw is not None:
+                sig_line_kwargs['lw'] = sig_lw
+
             if is_primary_input:
                 min_dx = min(x for x, _ in dst_points)
                 bus_y = src_pt[1]
                 src_stub = (src_pt[0] + 0.25, bus_y)
-                d.add(elm.Line().at(src_pt).to(src_stub))
+                d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub))
                 gate_anchors = [(x, y) for (x, y) in dst_points if (x, y) not in output_anchor.values()]
                 if len(gate_anchors) == 1:
                     dx, dy = gate_anchors[0]
                     pre = (snap(dx - 0.6, grid_x), bus_y)
-                    hline_avoid(src_stub, pre, target_x=dx)
+                    hline_avoid(src_stub, pre, target_x=dx, signal=sig)
                     if abs(dy - bus_y) > 1e-3:
-                        vline_avoid(pre, (pre[0], dy))
-                    d.add(elm.Line().at((pre[0], dy)).to((dx, dy)))
+                        vline_avoid(pre, (pre[0], dy), signal=sig)
+                    d.add(elm.Line(**sig_line_kwargs).at((pre[0], dy)).to((dx, dy)))
                 else:
                     preferred = snap(min_dx - 1.2, grid_x)
                     tap_x = max(src_stub[0] + 0.6, preferred)
@@ -947,14 +1056,14 @@ class SVCircuit:
                             tap_x = snap(tap_x, grid_x)
                             tries += 1
                     used_verticals.append((tap_x, t_lo, t_hi))
-                    hline_avoid(src_stub, (tap_x, bus_y), target_x=tap_x)
+                    hline_avoid(src_stub, (tap_x, bus_y), target_x=tap_x, signal=sig)
                     for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
                         if abs(dy - bus_y) > 1e-3:
                             d.add(elm.Dot().at((tap_x, bus_y)))
-                            vline_avoid((tap_x, bus_y), (tap_x, dy))
+                            vline_avoid((tap_x, bus_y), (tap_x, dy), signal=sig)
                         pre = (dx - 0.6, dy)
-                        hline_avoid((tap_x, dy), pre, target_x=dx)
-                        d.add(elm.Line().at(pre).to((dx, dy)))
+                        hline_avoid((tap_x, dy), pre, target_x=dx, signal=sig)
+                        d.add(elm.Line(**sig_line_kwargs).at(pre).to((dx, dy)))
             else:
                 min_dst_x = min(x for x, _ in dst_points)
                 base_midx = (src_pt[0] + min_dst_x) / 2.0
@@ -982,21 +1091,21 @@ class SVCircuit:
                 # Label intermediate signals on the horizontal line
                 if sig in self.internal_signals:
                     label_x = (src_stub[0] + midx) / 2.0
-                    d.add(elm.Line().at(src_pt).to(src_stub).label(sig, 'top', ofst=0.1, fontsize=8))
+                    d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub).label(sig, 'top', ofst=0.1, fontsize=8))
                 else:
-                    d.add(elm.Line().at(src_pt).to(src_stub))
+                    d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub))
 
-                hline_avoid(src_stub, (midx, src_stub[1]), target_x=midx)
+                hline_avoid(src_stub, (midx, src_stub[1]), target_x=midx, signal=sig)
                 d.add(elm.Dot().at((midx, src_stub[1])))
                 ys = [y for _, y in dst_points] + [src_stub[1]]
                 y_lo, y_hi = (min(ys), max(ys))
                 if y_hi - y_lo > 0.01:
-                    vline_avoid((midx, y_lo), (midx, y_hi))
+                    vline_avoid((midx, y_lo), (midx, y_hi), signal=sig)
                 for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
                     d.add(elm.Dot().at((midx, dy)))
                     pre = (dx - 0.6, dy)
-                    hline_avoid((midx, dy), pre, target_x=dx)
-                    d.add(elm.Line().at(pre).to((dx, dy)))
+                    hline_avoid((midx, dy), pre, target_x=dx, signal=sig)
+                    d.add(elm.Line(**sig_line_kwargs).at(pre).to((dx, dy)))
 
         # Add truth table if requested
         if show_table:
@@ -1048,27 +1157,50 @@ class SVCircuit:
             fh.write(svg_text)
         return None
 
-    def _add_gate(self, d, g: Gate, x: float, y: float, fontsize: int = 9):
+    def _add_gate(self, d, g: Gate, x: float, y: float, fontsize: int = 9, fill_gates: bool = False, style_settings: dict = None):
         t = g.type.upper()
         label = g.name
+
+        # Determine fill color if enabled
+        fill_color = None
+        if fill_gates and style_settings:
+            gate_fills = style_settings.get('gate_fills', {})
+            if gate_fills:
+                fill_color = gate_fills.get(t)
+            elif fill_gates:
+                # Default subtle fills when --fill-gates used without vibrant style
+                default_fills = {
+                    'AND': '#e8f4f8', 'NAND': '#e8f4f8',
+                    'OR': '#f0f8ff', 'NOR': '#f0f8ff',
+                    'XOR': '#fffacd', 'XNOR': '#fffacd',
+                    'NOT': '#f5e6ff', 'BUF': '#e0f2f1',
+                }
+                fill_color = default_fills.get(t)
+
+        # Helper to add fill if available
+        def maybe_fill(elem):
+            if fill_color:
+                return elem.fill(fill_color)
+            return elem
+
         if t == 'NAND':
-            return d.add(logic.Nand().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Nand().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
         if t == 'AND':
-            return d.add(logic.And().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.And().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
         if t == 'OR':
-            return d.add(logic.Or().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Or().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
         if t == 'NOR':
-            return d.add(logic.Nor().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Nor().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
         if t == 'XOR':
-            return d.add(logic.Xor().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Xor().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
         if t == 'XNOR':
-            return d.add(logic.Xnor().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Xnor().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
         if t in ('NOT', 'INV'):
-            elem = logic.Not().at((x, y)).anchor('in1')
+            elem = maybe_fill(logic.Not().at((x, y)).anchor('in1'))
             return d.add(elem.label(label, 'center', fontsize=fontsize))
         if t in ('BUF', 'BUFFER'):
             try:
-                return d.add(logic.Buffer().at((x, y)).anchor('in1').label(label, 'center', fontsize=fontsize))
+                return d.add(maybe_fill(logic.Buffer().at((x, y)).anchor('in1')).label(label, 'center', fontsize=fontsize))
             except Exception:
-                return d.add(elm.Rect(w=1, h=1).at((x, y)).label(f"BUF:{label}", 'center', fontsize=fontsize))
-        return d.add(elm.Rect(w=1, h=1).at((x, y)).label(f"{t}:{label}", 'center', fontsize=fontsize))
+                return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"BUF:{label}", 'center', fontsize=fontsize))
+        return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"{t}:{label}", 'center', fontsize=fontsize))

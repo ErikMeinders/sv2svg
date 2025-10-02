@@ -25,8 +25,14 @@ pip install -e .
 # Basic usage
 sv2svg input.sv -o output.svg
 
-# With options
-sv2svg input.sv --style blueprint --orientation vertical --table -o output.svg
+# With visual enhancements
+sv2svg input.sv --fill-gates --signal-styles --fanout-wires --style vibrant -o output.svg
+
+# Full-featured diagram
+sv2svg input.sv --style vibrant --fill-gates --signal-styles --fanout-wires --table --no-caption -o output.svg
+
+# Vertical layout with dark theme
+sv2svg input.sv --orientation vertical --style dark -o output.svg
 
 # Output to stdout (useful for pipelines)
 sv2svg input.sv -o - > output.svg
@@ -36,13 +42,21 @@ sv2svg --version
 ```
 
 **CLI Options**:
-- `--style {classic,blueprint,midnight,mono}` — Color scheme (default: classic)
+
+*Style & Layout*:
+- `--style {classic,blueprint,midnight,mono,vibrant,dark}` — Color scheme (default: classic)
 - `--orientation {horizontal,vertical}` — Layout direction (default: horizontal)
-- `--table` — Include truth table in diagram (max 5 inputs)
 - `--grid-x FLOAT` — Horizontal grid snapping (default: 0.5)
 - `--grid-y FLOAT` — Vertical grid snapping (default: 0.5)
 - `--no-symmetry` — Disable symmetric gate placement
 - `--input-order {alpha,ports,auto}` — Input port ordering (default: alpha)
+
+*Visualization Enhancements*:
+- `--fill-gates` — Enable fill colors for logic gates (subtle pastels by default, vibrant colors with `--style vibrant`)
+- `--signal-styles` — Use different line styles (solid=primary I/O, dashed=intermediate signals)
+- `--fanout-wires` — Use thicker lines for signals with higher fan-out (1.0→2.0 based on load count)
+- `--table` — Include truth table in diagram (max 5 inputs)
+- `--no-caption` — Suppress "Module: modulename" caption
 
 ### Testing
 ```bash
@@ -158,16 +172,22 @@ When `--table` is specified, the circuit simulator (`core.py:535-606`) generates
 
 ### Style System
 
-`STYLE_PRESETS` in `core.py:306-327` defines color schemes with font size tuning:
+`STYLE_PRESETS` in `core.py:306-348` defines color schemes with font size tuning and optional gate fill colors:
+
+**Available Styles**:
 - `classic` — Dark blue-gray (default)
-- `blueprint` — NASA blue
-- `midnight` — Cyan on dark
-- `mono` — Grayscale
+- `blueprint` — NASA blue for technical documentation
+- `midnight` — Cyan on dark background
+- `mono` — Grayscale for print-friendly output
+- `vibrant` — Bright gate colors (red, blue, orange, purple, teal) with `--fill-gates`
+- `dark` — Light-on-dark theme for dark mode documentation
 
 Each preset configures:
 - **Base settings**: `color`, `lw` (line width), `fontsize` (10pt for labels)
 - **Module label color**: Title text color
 - **Gate label fontsize**: Smaller font (9pt) for gate names to fit better inside gates
+- **Gate fills** (vibrant only): Color-coded gate fills (AND=red, OR=blue, XOR=orange, NOT=purple, BUF=teal)
+- **Background** (dark only): Dark background color for light-on-dark theme
 
 **Font Sizes**:
 - Module labels: 10pt
@@ -176,29 +196,75 @@ Each preset configures:
 - Wire labels (intermediate signals): 8pt
 - Truth table: 9pt headers, 8pt values
 
+### Visualization Features
+
+**Gate Fill Colors** (`--fill-gates`):
+- Default fills: Subtle pastel colors (light blue, alice blue, light yellow, lavender, mint)
+- Vibrant fills: Bright colors from `vibrant` style preset
+- Implementation: `_add_gate()` method applies `fill()` to gate elements based on gate type
+- Location: `core.py:1077-1206`
+
+**Signal Line Styles** (`--signal-styles`):
+- **Solid lines** (`-`): Primary inputs and outputs
+- **Dashed lines** (`--`): Intermediate signals (declared as `logic`)
+- Implementation: `get_line_style()` helper function determines style based on signal type
+- Applied to all `elm.Line()` calls via `ls` parameter
+- Location: `core.py:746-754`
+
+**Fan-out Wire Thickness** (`--fanout-wires`):
+- **1.0**: Single load (1 gate)
+- **1.3**: Dual load (2 gates)
+- **1.6**: Moderate fan-out (3-4 gates)
+- **2.0**: High fan-out (5+ gates)
+- Implementation: `get_line_width()` calculates thickness based on signal fan-out count
+- Applied to all `elm.Line()` calls via `lw` parameter
+- Location: `core.py:756-770`
+
+**Caption Control** (`--no-caption`):
+- Suppresses "Module: modulename" label when enabled
+- Location: `core.py:689-695`
+
 ## Common Development Patterns
 
 ### Adding a New Gate Type
-1. Update `_add_gate()` in `core.py:942-965` to handle the new gate type string
+1. Update `_add_gate()` in `core.py:1077-1206` to handle the new gate type string
 2. Map to appropriate Schemdraw `logic.*` class or fallback to `elm.Box`
 3. Apply gate label fontsize parameter for consistent styling
-4. If adding assign statement support, update the expression parser's gate type mapping
+4. Use `maybe_fill()` helper to support `--fill-gates` feature
+5. If adding assign statement support, update the expression parser's gate type mapping
+
+### Adding a New Style Preset
+1. Add entry to `STYLE_PRESETS` dictionary in `core.py:306-348`
+2. Configure `config` dict with `color`, `lw`, `fontsize`
+3. Set `module_label_color` and `gate_label_fontsize`
+4. Optionally add `gate_fills` dict for `--fill-gates` integration
+5. Optionally add `background` color for dark themes
+6. Update `available_styles()` list in CLI help (`cli.py:17`)
+
+### Adding Visualization Features
+1. **Add CLI flag**: Add argument to `cli.py` parser (lines 25-30)
+2. **Update signature**: Add parameter to `generate_diagram()` in `core.py` (line 689)
+3. **Pass parameter**: Update both stdout and file generation calls in `cli.py` (lines 47-67)
+4. **Implement feature**: Add logic in `generate_diagram()` method
+5. **Apply styling**: Use helper functions or modify element creation
+6. **Test**: Create test cases and verify with existing fixtures
+
+**Example pattern** (signal styling):
+- Helper function: `get_line_style(signal)` returns style based on signal type
+- Apply to lines: `elm.Line(**line_kwargs)` where `line_kwargs = {'ls': style, 'lw': width}`
+- Thread signal name through routing functions for context-aware styling
 
 ### Modifying Layout Algorithm
 - **Level assignment**: See `layout.py:LayoutEngine.assign_levels()`
 - **Barycenter ordering**: See `layout.py:LayoutEngine.reorder_by_barycenter()`
-- **Symmetry logic**: See `generate_diagram()` symmetry block (`core.py:~680-710`)
+- **Symmetry logic**: See `generate_diagram()` symmetry block (`core.py:~817-860`)
 
 ### Debugging Routing Issues
 - Inspect `bboxes` list for gate collision regions
 - Add temporary `print()` statements in `hline_avoid()` or `vline_avoid()`
 - Use `--grid-x 0 --grid-y 0` to disable snapping and see raw coordinates
 - Check intermediate signal labels to verify connectivity
-
-### Extending CLI Options
-1. Add argument to `cli.py` parser (lines 8-23)
-2. Pass through to `SVCircuit.generate_diagram()` call in both stdout and file paths
-3. Update `SVCircuit.generate_diagram()` signature in `core.py` (line 595)
+- Verify line styling with `--signal-styles` and `--fanout-wires` to visualize signal paths
 
 ## Project Constraints
 

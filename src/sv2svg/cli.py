@@ -20,6 +20,14 @@ def main(argv=None):
                         help='Rotate diagram layout: horizontal (left-to-right) or vertical (top-to-bottom).')
     parser.add_argument('--table', action='store_true',
                         help='Include truth table in the diagram.')
+    parser.add_argument('--no-caption', action='store_true',
+                        help='Suppress the "Module: modulename" caption.')
+    parser.add_argument('--fill-gates', action='store_true',
+                        help='Enable subtle fill colors for logic gates.')
+    parser.add_argument('--signal-styles', action='store_true',
+                        help='Use different line styles for signal types (solid=primary, dashed=intermediate).')
+    parser.add_argument('--fanout-wires', action='store_true',
+                        help='Use thicker wires for signals with higher fan-out.')
     parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -46,6 +54,10 @@ def main(argv=None):
                 style=args.style,
                 orientation=args.orientation,
                 show_table=args.table,
+                show_caption=(not args.no_caption),
+                fill_gates=args.fill_gates,
+                signal_styles=args.signal_styles,
+                fanout_wires=args.fanout_wires,
             )
             if svg_data is None:
                 raise RuntimeError("Expected SVG data when writing to stdout")
@@ -61,6 +73,10 @@ def main(argv=None):
                 style=args.style,
                 orientation=args.orientation,
                 show_table=args.table,
+                show_caption=(not args.no_caption),
+                fill_gates=args.fill_gates,
+                signal_styles=args.signal_styles,
+                fanout_wires=args.fanout_wires,
             )
             print(f"Circuit diagram saved to {out}", file=sys.stderr)
     except Exception as e:
