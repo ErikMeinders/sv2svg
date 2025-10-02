@@ -1,3 +1,10 @@
+# [0.11.0](https://github.com/ErikMeinders/sv2svg/compare/v0.10.1...v0.11.0) (2025-10-02)
+
+
+### Features
+
+* added several rendering options ([d85c2f3](https://github.com/ErikMeinders/sv2svg/commit/d85c2f3b01a5fdfb7ca9f040bbab837a9fbe9c1a))
+
 ## [0.10.1](https://github.com/ErikMeinders/sv2svg/compare/v0.10.0...v0.10.1) (2025-10-02)
 
 
