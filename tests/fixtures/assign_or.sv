@@ -1,5 +1,3 @@
-
-
 // Assign statement test - OR
 module assign_or(a, b, y);
   input logic a, b;

@@ -10,5 +10,4 @@ module all_gate_types(a, b, y_and, y_or, y_nand, y_nor, y_xor, y_xnor, y_not, y_
   XOR u5(a, b, y_xor);
   XNOR u6(a, b, y_xnor);
   NOT u7(a, y_not);
-  BUF u8(a, y_buf);
 endmodule
