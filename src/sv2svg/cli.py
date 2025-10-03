@@ -11,8 +11,8 @@ def main(argv=None):
     parser.add_argument('-o', '--output', help='Output image file (SVG recommended, use "-" for stdout)')
     parser.add_argument('--input-order', choices=['alpha', 'ports', 'auto'], default='alpha',
                         help="Order primary inputs top-to-bottom: 'alpha' (a..z), 'ports' (module header order), or 'auto' (ports if available else alpha). Default: alpha")
-    parser.add_argument('--grid-x', type=float, default=0.5, help='Snap X coordinates to this grid step (0 to disable).')
-    parser.add_argument('--grid-y', type=float, default=0.5, help='Snap Y coordinates to this grid step (0 to disable).')
+    parser.add_argument('--grid-x', type=float, default=0.0, help='Snap X coordinates to this grid step (0 to disable).')
+    parser.add_argument('--grid-y', type=float, default=0.0, help='Snap Y coordinates to this grid step (0 to disable).')
     parser.add_argument('--no-symmetry', action='store_true', help='Disable symmetric sibling placement around shared driver centerlines.')
     parser.add_argument('--style', choices=available_styles(), default='classic',
                         help='Color/line weight preset for the generated diagram.')

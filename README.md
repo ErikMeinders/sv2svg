@@ -73,8 +73,8 @@ usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}]
 
 ### Layout Options
 - `--input-order {alpha,ports,auto}` — sort inputs alphabetically, preserve declaration order, or auto-detect (default: `alpha`)
-- `--grid-x GRID_X` — snap X coordinates to grid (default: 0.5, use 0 to disable)
-- `--grid-y GRID_Y` — snap Y coordinates to grid (default: 0.5, use 0 to disable)
+- `--grid-x GRID_X` — snap X coordinates to grid (default: 0, disabled by default)
+- `--grid-y GRID_Y` — snap Y coordinates to grid (default: 0, disabled by default)
 - `--no-symmetry` — disable mirrored placement for sibling signals around shared drivers
 - `--orientation {horizontal,vertical}` — layout direction: left-to-right or top-to-bottom (default: `horizontal`)
 

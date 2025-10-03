@@ -690,8 +690,8 @@ class SVCircuit:
         self,
         output_filename: Optional[str] = None,
         input_order: str = 'alpha',
-        grid_x: float = 0.5,
-        grid_y: float = 0.5,
+        grid_x: float = 0.0,
+        grid_y: float = 0.0,
         symmetry: bool = True,
         to_stdout: bool = False,
         style: str = 'classic',
@@ -773,6 +773,11 @@ class SVCircuit:
 
         input_y0 = 0.0
         sig_source_pt: Dict[str, Tuple[float, float]] = {}
+
+        # Track wire segments for crossing detection
+        horizontal_wires: List[Tuple[float, float, float]] = []  # (y, x1, x2)
+        vertical_wires: List[Tuple[float, float, float]] = []    # (x, y1, y2)
+
         in_sink_info: Dict[str, List[Tuple[int, int, str]]] = {s: [] for s in self.inputs}
         for g in self.gates:
             for i, s in enumerate(g.inputs, start=1):
@@ -805,7 +810,7 @@ class SVCircuit:
                 input_line_kwargs['lw'] = input_lw
             d.add(elm.Line(**input_line_kwargs).at((left_margin, y)).to((left_margin + 0.8, y)).label(name, 'left'))
             src = (left_margin + 0.8, y)
-            d.add(elm.Dot().at(src))
+            horizontal_wires.append((y, left_margin, left_margin + 0.8))
             sig_source_pt[name] = src
 
         max_level = max(g.level for g in self.gates) if self.gates else 0
@@ -892,7 +897,7 @@ class SVCircuit:
             if output_lw is not None:
                 output_line_kwargs['lw'] = output_lw
             d.add(elm.Line(**output_line_kwargs).at((out_x - 0.8, y)).to((out_x, y)).label(name, 'right'))
-            d.add(elm.Dot().at((out_x - 0.8, y)))
+            horizontal_wires.append((y, out_x - 0.8, out_x))
             output_anchor[name] = (out_x - 0.8, y)
 
         bboxes: List[Dict[str, float]] = []
@@ -913,6 +918,78 @@ class SVCircuit:
                 bboxes.append({'name': gname, 'left': left, 'right': right, 'top': top, 'bottom': bottom})
             except Exception:
                 continue
+
+        def find_crossings(is_horizontal: bool, coord: float, start: float, end: float) -> List[float]:
+            """Find crossing points with perpendicular wires."""
+            crossings = []
+            if is_horizontal:
+                # Check against vertical wires
+                y = coord
+                x1, x2 = (start, end) if start < end else (end, start)
+                for (vx, vy1, vy2) in vertical_wires:
+                    if x1 < vx < x2:  # Vertical wire is within horizontal span
+                        if min(vy1, vy2) < y < max(vy1, vy2):  # Horizontal wire crosses vertical
+                            crossings.append(vx)
+            else:
+                # Check against horizontal wires
+                x = coord
+                y1, y2 = (start, end) if start < end else (end, start)
+                for (hy, hx1, hx2) in horizontal_wires:
+                    if y1 < hy < y2:  # Horizontal wire is within vertical span
+                        if min(hx1, hx2) < x < max(hx1, hx2):  # Vertical wire crosses horizontal
+                            crossings.append(hy)
+            return sorted(crossings)
+
+        def draw_line_with_hops(d, p1: Tuple[float, float], p2: Tuple[float, float], is_horizontal: bool, line_kwargs: dict):
+            """Draw a line with hop-overs at crossing points."""
+            if is_horizontal:
+                y = p1[1]
+                x1, x2 = p1[0], p2[0]
+                crossings = find_crossings(True, y, x1, x2)
+
+                if not crossings:
+                    d.add(elm.Line(**line_kwargs).at(p1).to(p2))
+                else:
+                    # Draw line segments with hops at crossings
+                    current_x = x1
+                    hop_size = 0.2
+                    hop_height = 0.15
+                    for cross_x in crossings:
+                        # Draw up to crossing
+                        if abs(cross_x - current_x) > 0.01:
+                            d.add(elm.Line(**line_kwargs).at((current_x, y)).to((cross_x - hop_size/2, y)))
+                        # Draw hop (small bump)
+                        d.add(elm.Line(**line_kwargs).at((cross_x - hop_size/2, y)).to((cross_x - hop_size/2, y - hop_height)))
+                        d.add(elm.Line(**line_kwargs).at((cross_x - hop_size/2, y - hop_height)).to((cross_x + hop_size/2, y - hop_height)))
+                        d.add(elm.Line(**line_kwargs).at((cross_x + hop_size/2, y - hop_height)).to((cross_x + hop_size/2, y)))
+                        current_x = cross_x + hop_size/2
+                    # Draw final segment
+                    if abs(x2 - current_x) > 0.01:
+                        d.add(elm.Line(**line_kwargs).at((current_x, y)).to((x2, y)))
+            else:
+                x = p1[0]
+                y1, y2 = p1[1], p2[1]
+                crossings = find_crossings(False, x, y1, y2)
+
+                if not crossings:
+                    d.add(elm.Line(**line_kwargs).at(p1).to(p2))
+                else:
+                    # Draw line segments with hops at crossings
+                    current_y = y1
+                    hop_size = 0.2
+                    hop_width = 0.15
+                    for cross_y in crossings:
+                        # Draw up to crossing
+                        if abs(cross_y - current_y) > 0.01:
+                            d.add(elm.Line(**line_kwargs).at((x, current_y)).to((x, cross_y - hop_size/2)))
+                        # Draw hop (small bump to the left)
+                        d.add(elm.Line(**line_kwargs).at((x, cross_y - hop_size/2)).to((x - hop_width, cross_y - hop_size/2)))
+                        d.add(elm.Line(**line_kwargs).at((x - hop_width, cross_y - hop_size/2)).to((x - hop_width, cross_y + hop_size/2)))
+                        d.add(elm.Line(**line_kwargs).at((x - hop_width, cross_y + hop_size/2)).to((x, cross_y + hop_size/2)))
+                        current_y = cross_y + hop_size/2
+                    # Draw final segment
+                    if abs(y2 - current_y) > 0.01:
+                        d.add(elm.Line(**line_kwargs).at((x, current_y)).to((x, y2)))
 
         def hline_avoid(p1: Tuple[float, float], p2: Tuple[float, float], target_x: float, signal: str = None):
             x1, y = p1
@@ -937,12 +1014,16 @@ class SVCircuit:
                 if lw is not None:
                     line_kwargs['lw'] = lw
             if not collided:
-                d.add(elm.Line(**line_kwargs).at((x1, y)).to((x2, y)))
+                draw_line_with_hops(d, (x1, y), (x2, y), is_horizontal=True, line_kwargs=line_kwargs)
+                horizontal_wires.append((y, x1, x2))
                 return
             midy = (collided['top'] + collided['bottom']) / 2.0
             detour_y = collided['top'] - 0.4 if y <= midy else collided['bottom'] + 0.4
+            vertical_wires.append((x1, y, detour_y))
             d.add(elm.Line(**line_kwargs).at((x1, y)).to((x1, detour_y)))
-            d.add(elm.Line(**line_kwargs).at((x1, detour_y)).to((x2, detour_y)))
+            horizontal_wires.append((detour_y, x1, x2))
+            draw_line_with_hops(d, (x1, detour_y), (x2, detour_y), is_horizontal=True, line_kwargs=line_kwargs)
+            vertical_wires.append((x2, detour_y, y))
             d.add(elm.Line(**line_kwargs).at((x2, detour_y)).to((x2, y)))
 
         def vline_avoid(p1: Tuple[float, float], p2: Tuple[float, float], signal: str = None):
@@ -968,13 +1049,15 @@ class SVCircuit:
                     collided = b
                     break
             if not collided:
-                d.add(elm.Line(**line_kwargs).at((x, y1)).to((x, y2)))
+                draw_line_with_hops(d, (x, y1), (x, y2), is_horizontal=False, line_kwargs=line_kwargs)
+                vertical_wires.append((x, y1, y2))
                 return
             left_x = collided['left'] - 0.4
             right_x = collided['right'] + 0.4
             detour_x = left_x if (left_x > left_margin + 0.2) else right_x
             hline_avoid((x, y1), (detour_x, y1), target_x=detour_x, signal=signal)
-            d.add(elm.Line(**line_kwargs).at((detour_x, y1)).to((detour_x, y2)))
+            vertical_wires.append((detour_x, y1, y2))
+            draw_line_with_hops(d, (detour_x, y1), (detour_x, y2), is_horizontal=False, line_kwargs=line_kwargs)
             hline_avoid((detour_x, y2), (x, y2), target_x=x, signal=signal)
 
         def is_commutative(t: str) -> bool:
@@ -1011,6 +1094,65 @@ class SVCircuit:
         min_gap = 0.35
         used_verticals: List[Tuple[float, float, float]] = []
 
+        # Calculate Y ranges for each signal
+        signal_y_ranges: Dict[str, Tuple[float, float]] = {}
+        for sig, src_pt in sig_source_pt.items():
+            ys = [src_pt[1]]
+            for (gname, anchor) in sinks.get(sig, []):
+                if anchor:
+                    ys.append(anchor[1])
+            if sig in output_anchor:
+                ys.append(output_anchor[sig][1])
+            signal_y_ranges[sig] = (min(ys), max(ys))
+
+        # Group signals by destination gate to coordinate vertical trunk positions
+        # Only share trunk X if Y ranges don't overlap
+        gate_input_groups: Dict[str, List[str]] = {}
+        for sig, sink_list in sinks.items():
+            for (gname, anchor) in sink_list:
+                gate_input_groups.setdefault(gname, []).append(sig)
+
+        # Calculate preferred trunk X position for gates with multiple inputs
+        # Signals can share X if their Y ranges don't overlap
+        preferred_trunk_x: Dict[Tuple[str, str], float] = {}  # (gate, signal) -> X
+        for gname, input_signals in gate_input_groups.items():
+            if len(input_signals) < 2:
+                continue
+
+            # Find anchor for this gate
+            gate_anchor_x = None
+            for sig in input_signals:
+                for (g, anchor) in sinks.get(sig, []):
+                    if g == gname and anchor:
+                        gate_anchor_x = anchor[0]
+                        break
+                if gate_anchor_x:
+                    break
+
+            if not gate_anchor_x:
+                continue
+
+            # Check which signals can share the same trunk X
+            preferred_x = snap(gate_anchor_x - 0.6, grid_x)
+            for sig in input_signals:
+                # Check if this signal's Y range conflicts with already assigned signals at this X
+                sig_y_min, sig_y_max = signal_y_ranges.get(sig, (0, 0))
+                can_share = True
+
+                for other_sig in input_signals:
+                    if other_sig == sig:
+                        continue
+                    if (gname, other_sig) in preferred_trunk_x and preferred_trunk_x[(gname, other_sig)] == preferred_x:
+                        # Check Y overlap
+                        other_y_min, other_y_max = signal_y_ranges.get(other_sig, (0, 0))
+                        if not (sig_y_max < other_y_min or sig_y_min > other_y_max):
+                            # Y ranges overlap - can't share this X
+                            can_share = False
+                            break
+
+                if can_share:
+                    preferred_trunk_x[(gname, sig)] = preferred_x
+
         for order_idx, (sig, src_pt) in enumerate(ordered_signals):
             dst_points: List[Tuple[float, float]] = []
             for (gname, anchor) in sinks.get(sig, []):
@@ -1035,6 +1177,7 @@ class SVCircuit:
                 bus_y = src_pt[1]
                 src_stub = (src_pt[0] + 0.25, bus_y)
                 d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub))
+                horizontal_wires.append((bus_y, src_pt[0], src_stub[0]))
                 gate_anchors = [(x, y) for (x, y) in dst_points if (x, y) not in output_anchor.values()]
                 if len(gate_anchors) == 1:
                     dx, dy = gate_anchors[0]
@@ -1043,9 +1186,21 @@ class SVCircuit:
                     if abs(dy - bus_y) > 1e-3:
                         vline_avoid(pre, (pre[0], dy), signal=sig)
                     d.add(elm.Line(**sig_line_kwargs).at((pre[0], dy)).to((dx, dy)))
+                    horizontal_wires.append((dy, pre[0], dx))
                 else:
-                    preferred = snap(min_dx - 1.2, grid_x)
-                    tap_x = max(src_stub[0] + 0.6, preferred)
+                    # Check if any destination gate has a preferred trunk position for this signal
+                    preferred_x = None
+                    for (gname, anchor) in sinks.get(sig, []):
+                        if (gname, sig) in preferred_trunk_x:
+                            preferred_x = preferred_trunk_x[(gname, sig)]
+                            break
+
+                    if preferred_x is None:
+                        preferred = snap(min_dx - 1.2, grid_x)
+                        tap_x = max(src_stub[0] + 0.6, preferred)
+                    else:
+                        tap_x = preferred_x
+
                     taps_ys = [y for (_, y) in dst_points] + [bus_y]
                     t_lo, t_hi = (min(taps_ys), max(taps_ys))
                     def v_conflict(x):
@@ -1062,22 +1217,39 @@ class SVCircuit:
                             tries += 1
                     used_verticals.append((tap_x, t_lo, t_hi))
                     hline_avoid(src_stub, (tap_x, bus_y), target_x=tap_x, signal=sig)
+                    # Add dot at trunk base only if there are multiple branches
+                    if len(dst_points) > 1:
+                        d.add(elm.Dot().at((tap_x, bus_y)))
                     for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
                         if abs(dy - bus_y) > 1e-3:
-                            d.add(elm.Dot().at((tap_x, bus_y)))
                             vline_avoid((tap_x, bus_y), (tap_x, dy), signal=sig)
+                        # Add dot at each branch point
+                        if len(dst_points) > 1:
+                            d.add(elm.Dot().at((tap_x, dy)))
                         pre = (dx - 0.6, dy)
                         hline_avoid((tap_x, dy), pre, target_x=dx, signal=sig)
                         d.add(elm.Line(**sig_line_kwargs).at(pre).to((dx, dy)))
+                        horizontal_wires.append((dy, pre[0], dx))
             else:
+                # Check if any destination gate has a preferred trunk position for this signal
+                preferred_x = None
+                for (gname, anchor) in sinks.get(sig, []):
+                    if (gname, sig) in preferred_trunk_x:
+                        preferred_x = preferred_trunk_x[(gname, sig)]
+                        break
+
                 min_dst_x = min(x for x, _ in dst_points)
-                base_midx = (src_pt[0] + min_dst_x) / 2.0
-                candidate = snap(base_midx, grid_x)
-                candidate = min(candidate, min_dst_x - 0.6)
-                candidate = max(candidate, src_pt[0] + 0.6)
+                if preferred_x is None:
+                    base_midx = (src_pt[0] + min_dst_x) / 2.0
+                    candidate = snap(base_midx, grid_x)
+                    candidate = min(candidate, min_dst_x - 0.6)
+                    candidate = max(candidate, src_pt[0] + 0.6)
+                    midx = candidate
+                else:
+                    midx = preferred_x
+
                 ys = [y for _, y in dst_points] + [src_pt[1]]
                 y_lo, y_hi = (min(ys), max(ys))
-                midx = candidate
                 def v_conflict2(x):
                     for ux, y0, y1 in used_verticals:
                         if abs(x - ux) < min_gap and not (y_hi < y0 or y_lo > y1):
@@ -1111,18 +1283,24 @@ class SVCircuit:
                     d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub).label(sig, 'top', ofst=0.1, fontsize=8))
                 else:
                     d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub))
+                horizontal_wires.append((src_pt[1], src_pt[0], src_stub[0]))
 
                 hline_avoid(src_stub, (midx, src_stub[1]), target_x=midx, signal=sig)
-                d.add(elm.Dot().at((midx, src_stub[1])))
+                # Add dot at trunk base only if there are multiple branches
+                if len(dst_points) > 1:
+                    d.add(elm.Dot().at((midx, src_stub[1])))
                 ys = [y for _, y in dst_points] + [src_stub[1]]
                 y_lo, y_hi = (min(ys), max(ys))
                 if y_hi - y_lo > 0.01:
                     vline_avoid((midx, y_lo), (midx, y_hi), signal=sig)
                 for (dx, dy) in sorted(dst_points, key=lambda p: p[1]):
-                    d.add(elm.Dot().at((midx, dy)))
+                    # Add dot at each branch point only if there are multiple destinations
+                    if len(dst_points) > 1:
+                        d.add(elm.Dot().at((midx, dy)))
                     pre = (dx - 0.6, dy)
                     hline_avoid((midx, dy), pre, target_x=dx, signal=sig)
                     d.add(elm.Line(**sig_line_kwargs).at(pre).to((dx, dy)))
+                    horizontal_wires.append((dy, pre[0], dx))
 
         # Add truth table if requested
         if show_table:
@@ -1213,24 +1391,27 @@ class SVCircuit:
                 return elem.fill(fill_color)
             return elem
 
+        # For 2-input gates, we want the gate centered between inputs, not the output pin
+        # Schemdraw gates: when anchored on 'center', the geometric center is at (x,y)
+        # and inputs are symmetrically positioned above/below
         if t == 'NAND':
-            return d.add(maybe_fill(logic.Nand().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Nand().at((x, y))).label(label, 'bottom', fontsize=fontsize))
         if t == 'AND':
-            return d.add(maybe_fill(logic.And().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+            return d.add(maybe_fill(logic.And().at((x, y))).label(label, 'bottom', fontsize=fontsize))
         if t == 'OR':
-            return d.add(maybe_fill(logic.Or().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Or().at((x, y))).label(label, 'bottom', fontsize=fontsize))
         if t == 'NOR':
-            return d.add(maybe_fill(logic.Nor().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Nor().at((x, y))).label(label, 'bottom', fontsize=fontsize))
         if t == 'XOR':
-            return d.add(maybe_fill(logic.Xor().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Xor().at((x, y))).label(label, 'bottom', fontsize=fontsize))
         if t == 'XNOR':
-            return d.add(maybe_fill(logic.Xnor().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+            return d.add(maybe_fill(logic.Xnor().at((x, y))).label(label, 'bottom', fontsize=fontsize))
         if t in ('NOT', 'INV'):
-            elem = maybe_fill(logic.Not().at((x, y)).anchor('in1'))
+            elem = maybe_fill(logic.Not().at((x, y)))
             return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t in ('BUF', 'BUFFER'):
             try:
-                return d.add(maybe_fill(logic.Buffer().at((x, y)).anchor('in1')).label(label, 'bottom', fontsize=fontsize))
+                return d.add(maybe_fill(logic.Buffer().at((x, y))).label(label, 'bottom', fontsize=fontsize))
             except Exception:
                 return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"BUF:{label}", 'bottom', fontsize=fontsize))
         return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"{t}:{label}", 'bottom', fontsize=fontsize))

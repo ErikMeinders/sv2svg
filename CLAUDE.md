@@ -46,8 +46,8 @@ sv2svg --version
 *Style & Layout*:
 - `--style {classic,blueprint,midnight,mono,vibrant,dark}` — Color scheme (default: classic)
 - `--orientation {horizontal,vertical}` — Layout direction (default: horizontal)
-- `--grid-x FLOAT` — Horizontal grid snapping (default: 0.5)
-- `--grid-y FLOAT` — Vertical grid snapping (default: 0.5)
+- `--grid-x FLOAT` — Horizontal grid snapping (default: 0, disabled by default)
+- `--grid-y FLOAT` — Vertical grid snapping (default: 0, disabled by default)
 - `--no-symmetry` — Disable symmetric gate placement
 - `--input-order {alpha,ports,auto}` — Input port ordering (default: alpha)
 

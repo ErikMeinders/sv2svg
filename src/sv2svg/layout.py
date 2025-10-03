@@ -32,8 +32,8 @@ class LayoutConfig:
     x_step: float = 4.0
     y_step: float = 2.2
     left_margin: float = 0.5
-    grid_x: float = 0.5
-    grid_y: float = 0.5
+    grid_x: float = 0.0
+    grid_y: float = 0.0
     symmetry: bool = True
     trunk_stride: float = 0.45
     min_gap: float = 0.35
