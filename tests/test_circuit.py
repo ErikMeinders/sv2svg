@@ -38,12 +38,13 @@ class TestSVCircuitParsing:
         assert circuit.module_name == "multiple_gates"
         assert len(circuit.inputs) == 3  # a, b, c
         assert len(circuit.outputs) == 1  # y
-        assert len(circuit.gates) == 3  # AND, OR, NOT
+        assert len(circuit.gates) == 4  # AND, OR, XOR, NOT
 
         # Check gate types
         gate_types = [g.type for g in circuit.gates]
         assert "AND" in gate_types
         assert "OR" in gate_types
+        assert "XOR" in gate_types
         assert "NOT" in gate_types
 
     def test_parse_assign_and(self, fixture_dir):
@@ -116,7 +117,7 @@ class TestLevelAssignment:
 
         # Gates should have different levels based on connectivity
         # Level assignment happens during diagram generation, so just verify structure
-        assert len(circuit.gates) == 3
+        assert len(circuit.gates) == 4  # AND, OR, XOR, NOT
 
 
 class TestSignalConnectivity:

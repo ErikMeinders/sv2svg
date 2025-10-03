@@ -32,6 +32,8 @@ def main(argv=None):
                         help='Suppress labels on auto-generated elements (auto_*, _expr_*).')
     parser.add_argument('--no-labels', action='store_true',
                         help='Suppress ALL labels except inputs and outputs.')
+    parser.add_argument('--font-scale', type=float, default=1.2,
+                        help='Font size scale factor (default: 1.2 for slightly larger fonts)')
     parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -64,6 +66,7 @@ def main(argv=None):
                 fanout_wires=args.fanout_wires,
                 show_internal_labels=(not args.no_internal_labels),
                 show_all_labels=(not args.no_labels),
+                font_scale=args.font_scale,
             )
             if svg_data is None:
                 raise RuntimeError("Expected SVG data when writing to stdout")
@@ -85,6 +88,7 @@ def main(argv=None):
                 fanout_wires=args.fanout_wires,
                 show_internal_labels=(not args.no_internal_labels),
                 show_all_labels=(not args.no_labels),
+                font_scale=args.font_scale,
             )
             print(f"Circuit diagram saved to {out}", file=sys.stderr)
     except Exception as e:

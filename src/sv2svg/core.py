@@ -703,15 +703,18 @@ class SVCircuit:
         fanout_wires: bool = False,
         show_internal_labels: bool = True,
         show_all_labels: bool = True,
+        font_scale: float = 1.2,
     ) -> Optional[str]:
         d = schemdraw.Drawing(unit=1.2)
         style_settings = STYLE_PRESETS.get(style, STYLE_PRESETS['classic'])
         config_kwargs = dict(style_settings.get('config', {}))
         if 'fontsize' not in config_kwargs:
-            config_kwargs['fontsize'] = 10
+            config_kwargs['fontsize'] = int(10 * font_scale)
+        else:
+            config_kwargs['fontsize'] = int(config_kwargs['fontsize'] * font_scale)
         d.config(**config_kwargs)
         module_label_color = style_settings.get('module_label_color', '#1f618d')
-        gate_label_fontsize = style_settings.get('gate_label_fontsize', 9)
+        gate_label_fontsize = int(style_settings.get('gate_label_fontsize', 9) * font_scale)
         if show_caption:
             d.add(
                 elm.Label()
@@ -1280,7 +1283,7 @@ class SVCircuit:
 
                 if should_label:
                     label_x = (src_stub[0] + midx) / 2.0
-                    d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub).label(sig, 'top', ofst=0.1, fontsize=8))
+                    d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub).label(sig, 'top', ofst=0.1, fontsize=int(8 * font_scale)))
                 else:
                     d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub))
                 horizontal_wires.append((src_pt[1], src_pt[0], src_stub[0]))
@@ -1306,29 +1309,37 @@ class SVCircuit:
         if show_table:
             truth_table = self._generate_truth_table()
             if truth_table:
-                # Position table below the circuit, left aligned
-                # In Schemdraw, negative Y is down, so subtract to go lower
-                table_x = left_margin
-                col_width = 1.2
-                row_height = 0.6
-                header_y = min_y - 3.0  # Subtract to position below (more negative)
-
+                # Build table in markdown-like format for schemdraw
                 sorted_inputs = sorted(self.inputs)
                 sorted_outputs = sorted(self.outputs)
                 headers = sorted_inputs + sorted_outputs
 
-                # Draw table headers
-                for i, header in enumerate(headers):
-                    x = table_x + i * col_width
-                    d.add(elm.Label().label(header, fontsize=9).at((x, header_y)))
+                # Build table string with separators
+                table_lines = []
+                # Header row
+                table_lines.append(' | '.join(headers))
+                # Separator with double line before outputs
+                num_inputs = len(sorted_inputs)
+                separators = ['---'] * num_inputs + ['==='] + ['---'] * (len(sorted_outputs) - 1) if sorted_outputs else ['---'] * num_inputs
+                table_lines.append('|'.join(separators))
+                # Data rows
+                for row in truth_table:
+                    values = ['1' if row[h] else '0' for h in headers]
+                    table_lines.append(' | '.join(values))
 
-                # Draw table rows (going downward from header - subtract to go more negative)
-                for row_idx, row in enumerate(truth_table):
-                    row_y = header_y - (row_idx + 1) * row_height  # Subtract for downward in Schemdraw
-                    for col_idx, header in enumerate(headers):
-                        x = table_x + col_idx * col_width
-                        value = '1' if row[header] else '0'
-                        d.add(elm.Label().label(value, fontsize=8).at((x, row_y)))
+                table_str = '\n'.join(table_lines)
+
+                # Create column format: center all columns, double line before outputs
+                if sorted_outputs:
+                    colfmt = 'c' * num_inputs + '||' + 'c' * len(sorted_outputs)
+                else:
+                    colfmt = 'c' * len(headers)
+
+                # Position table below the circuit
+                table_x = left_margin
+                table_y = min_y - 3.0
+
+                d.add(logic.Table(table_str, colfmt=colfmt).at((table_x, table_y)))
 
         bbox = d.get_bbox()
         svg_bytes = d.get_imagedata('svg')
