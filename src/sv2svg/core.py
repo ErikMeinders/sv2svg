@@ -701,6 +701,8 @@ class SVCircuit:
         fill_gates: bool = False,
         signal_styles: bool = False,
         fanout_wires: bool = False,
+        show_internal_labels: bool = True,
+        show_all_labels: bool = True,
     ) -> Optional[str]:
         d = schemdraw.Drawing(unit=1.2)
         style_settings = STYLE_PRESETS.get(style, STYLE_PRESETS['classic'])
@@ -809,7 +811,7 @@ class SVCircuit:
         max_level = max(g.level for g in self.gates) if self.gates else 0
         gate_elems: Dict[str, any] = {}
         level_y_bases: Dict[int, float] = {}
-        max_y = input_y0  # Track maximum Y coordinate for truth table positioning
+        min_y = input_y0  # Track minimum Y coordinate (most negative = bottom) for truth table positioning
 
         # Temporarily use existing gate layout until full integration is complete
         levels = self._get_levels()
@@ -865,9 +867,9 @@ class SVCircuit:
                 y = ty if last_y is None else max(ty, last_y + y_step)
                 y = snap(y, grid_y)
                 last_y = y
-                max_y = max(max_y, y)  # Track maximum Y coordinate
+                min_y = min(min_y, y)  # Track minimum Y coordinate (most negative = bottom)
                 x = left_margin + x_step * float(lvl)
-                elem = self._add_gate(d, g, x, y, gate_label_fontsize, fill_gates, style_settings)
+                elem = self._add_gate(d, g, x, y, gate_label_fontsize, fill_gates, style_settings, show_internal_labels, show_all_labels)
                 if hasattr(elem, 'out'):
                     out_pt = elem.out
                 else:
@@ -880,7 +882,7 @@ class SVCircuit:
         for idx, name in enumerate(sorted(self.outputs)):
             src = sig_source_pt.get(name)
             y = src[1] if src else (idx * y_step)
-            max_y = max(max_y, y)  # Track maximum Y coordinate including outputs
+            min_y = min(min_y, y)  # Track minimum Y coordinate (most negative = bottom)
             # Apply styling for output signal
             output_line_kwargs = {}
             output_ls = get_line_style(name)
@@ -1091,8 +1093,20 @@ class SVCircuit:
                 used_verticals.append((midx, y_lo, y_hi))
                 src_stub = (src_pt[0] + 0.25, src_pt[1])
 
-                # Label intermediate signals on the horizontal line
-                if sig in self.internal_signals:
+                # Label signals based on options
+                should_label = False
+                if show_all_labels:
+                    # Show all labels except auto-generated if --no-internal-labels
+                    if show_internal_labels:
+                        should_label = sig in self.internal_signals
+                    else:
+                        # Skip auto-generated labels
+                        should_label = sig in self.internal_signals and not (sig.startswith('auto_') or sig.startswith('_expr_'))
+                else:
+                    # Only show inputs/outputs
+                    should_label = sig in self.inputs or sig in self.outputs
+
+                if should_label:
                     label_x = (src_stub[0] + midx) / 2.0
                     d.add(elm.Line(**sig_line_kwargs).at(src_pt).to(src_stub).label(sig, 'top', ofst=0.1, fontsize=8))
                 else:
@@ -1115,24 +1129,24 @@ class SVCircuit:
             truth_table = self._generate_truth_table()
             if truth_table:
                 # Position table below the circuit, left aligned
+                # In Schemdraw, negative Y is down, so subtract to go lower
                 table_x = left_margin
-                table_y = max_y + 3.0  # Position below circuit with spacing
+                col_width = 1.2
+                row_height = 0.6
+                header_y = min_y - 3.0  # Subtract to position below (more negative)
 
                 sorted_inputs = sorted(self.inputs)
                 sorted_outputs = sorted(self.outputs)
                 headers = sorted_inputs + sorted_outputs
 
                 # Draw table headers
-                col_width = 1.2
-                row_height = 0.6
-                header_y = table_y
                 for i, header in enumerate(headers):
                     x = table_x + i * col_width
                     d.add(elm.Label().label(header, fontsize=9).at((x, header_y)))
 
-                # Draw table rows
+                # Draw table rows (going downward from header - subtract to go more negative)
                 for row_idx, row in enumerate(truth_table):
-                    row_y = header_y - (row_idx + 1) * row_height
+                    row_y = header_y - (row_idx + 1) * row_height  # Subtract for downward in Schemdraw
                     for col_idx, header in enumerate(headers):
                         x = table_x + col_idx * col_width
                         value = '1' if row[header] else '0'
@@ -1160,9 +1174,22 @@ class SVCircuit:
             fh.write(svg_text)
         return None
 
-    def _add_gate(self, d, g: Gate, x: float, y: float, fontsize: int = 9, fill_gates: bool = False, style_settings: dict = None):
+    def _add_gate(self, d, g: Gate, x: float, y: float, fontsize: int = 9, fill_gates: bool = False, style_settings: dict = None, show_internal_labels: bool = True, show_all_labels: bool = True):
         t = g.type.upper()
         label = g.name
+
+        # Determine if this gate should be labeled
+        should_show_label = True
+        if not show_all_labels:
+            # Only show if output is in self.outputs
+            should_show_label = g.output in self.outputs
+        elif not show_internal_labels:
+            # Skip auto-generated labels
+            should_show_label = not (label.startswith('auto_') or label.startswith('_expr_'))
+
+        # Clear label if it shouldn't be shown
+        if not should_show_label:
+            label = ''
 
         # Determine fill color if enabled
         fill_color = None

@@ -28,6 +28,10 @@ def main(argv=None):
                         help='Use different line styles for signal types (solid=primary, dashed=intermediate).')
     parser.add_argument('--fanout-wires', action='store_true',
                         help='Use thicker wires for signals with higher fan-out.')
+    parser.add_argument('--no-internal-labels', action='store_true',
+                        help='Suppress labels on auto-generated elements (auto_*, _expr_*).')
+    parser.add_argument('--no-labels', action='store_true',
+                        help='Suppress ALL labels except inputs and outputs.')
     parser.add_argument('-V', '--version', action='version', version=f"%(prog)s {__version__}")
     args = parser.parse_args(argv)
 
@@ -58,6 +62,8 @@ def main(argv=None):
                 fill_gates=args.fill_gates,
                 signal_styles=args.signal_styles,
                 fanout_wires=args.fanout_wires,
+                show_internal_labels=(not args.no_internal_labels),
+                show_all_labels=(not args.no_labels),
             )
             if svg_data is None:
                 raise RuntimeError("Expected SVG data when writing to stdout")
@@ -77,6 +83,8 @@ def main(argv=None):
                 fill_gates=args.fill_gates,
                 signal_styles=args.signal_styles,
                 fanout_wires=args.fanout_wires,
+                show_internal_labels=(not args.no_internal_labels),
+                show_all_labels=(not args.no_labels),
             )
             print(f"Circuit diagram saved to {out}", file=sys.stderr)
     except Exception as e:
