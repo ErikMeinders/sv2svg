@@ -1,3 +1,10 @@
+## [0.11.3](https://github.com/ErikMeinders/sv2svg/compare/v0.11.2...v0.11.3) (2025-10-03)
+
+
+### Bug Fixes
+
+* multiple layout fixes ([31236f3](https://github.com/ErikMeinders/sv2svg/commit/31236f3011ef2c2b73ad421140cf6a28a582eaa8))
+
 ## [0.11.2](https://github.com/ErikMeinders/sv2svg/compare/v0.11.1...v0.11.2) (2025-10-03)
 
 
