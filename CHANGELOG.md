@@ -1,3 +1,10 @@
+## [0.11.4](https://github.com/ErikMeinders/sv2svg/compare/v0.11.3...v0.11.4) (2025-10-03)
+
+
+### Bug Fixes
+
+* improved truthtable ([e3315f8](https://github.com/ErikMeinders/sv2svg/commit/e3315f8e592ca6c0f233943543d1f5d71a32b462))
+
 ## [0.11.3](https://github.com/ErikMeinders/sv2svg/compare/v0.11.2...v0.11.3) (2025-10-03)
 
 
