@@ -1,3 +1,10 @@
+## [0.11.2](https://github.com/ErikMeinders/sv2svg/compare/v0.11.1...v0.11.2) (2025-10-03)
+
+
+### Bug Fixes
+
+* --no-labels flag added ([65bb791](https://github.com/ErikMeinders/sv2svg/commit/65bb7918235b793d52a2a803d9d0c8a217f93de7))
+
 ## [0.11.1](https://github.com/ErikMeinders/sv2svg/compare/v0.11.0...v0.11.1) (2025-10-02)
 
 
