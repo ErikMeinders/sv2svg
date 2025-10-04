@@ -109,6 +109,40 @@ class TestSVCircuitParsing:
         with pytest.raises(FileNotFoundError):
             circuit.parse_file("nonexistent.sv")
 
+    def test_parse_inline_port_types(self, fixture_dir):
+        """Test parsing inline port type specifications (issue #14)."""
+        circuit = SVCircuit()
+        circuit.parse_file(str(fixture_dir / "inline_ports.sv"))
+
+        assert circuit.module_name == "func"
+        assert circuit.port_order == ["a", "b", "c", "y"]
+        assert set(circuit.inputs) == {"a", "b", "c"}
+        assert set(circuit.outputs) == {"y"}
+        assert len(circuit.gates) == 1
+        assert circuit.gates[0].type == "AND"
+
+    def test_parse_inline_mixed(self, fixture_dir):
+        """Test parsing mixed inline port declarations."""
+        circuit = SVCircuit()
+        circuit.parse_file(str(fixture_dir / "inline_mixed.sv"))
+
+        assert circuit.module_name == "mixed_example"
+        assert circuit.port_order == ["x", "y", "z"]
+        assert set(circuit.inputs) == {"x", "y"}
+        assert set(circuit.outputs) == {"z"}
+        assert len(circuit.gates) == 1
+
+    def test_parse_inline_comprehensive(self, fixture_dir):
+        """Test parsing comprehensive inline port patterns."""
+        circuit = SVCircuit()
+        circuit.parse_file(str(fixture_dir / "inline_comprehensive.sv"))
+
+        assert circuit.module_name == "comprehensive"
+        assert circuit.port_order == ["a", "b", "c", "x", "y", "z"]
+        assert set(circuit.inputs) == {"a", "b", "c"}
+        assert set(circuit.outputs) == {"x", "y", "z"}
+        assert len(circuit.gates) == 3
+
 
 class TestLevelAssignment:
     """Test level assignment (topological sorting)."""
