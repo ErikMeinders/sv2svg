@@ -74,6 +74,17 @@ class TestSVCircuitParsing:
         assert circuit.gates[0].type == "NOT"
         assert len(circuit.gates[0].inputs) == 1
 
+    def test_parse_assign_timing(self, fixture_dir):
+        """Test parsing assign statement with timing delay."""
+        circuit = SVCircuit()
+        circuit.parse_file(str(fixture_dir / "assign_timing.sv"))
+
+        assert circuit.module_name == "assign_timing"
+        assert len(circuit.gates) == 1
+        assert circuit.gates[0].type == "OR"
+        assert circuit.gates[0].output == "y"
+        assert circuit.gates[0].delay == "3"
+
     def test_parse_all_gate_types(self, fixture_dir):
         """Test parsing all supported gate types."""
         circuit = SVCircuit()
