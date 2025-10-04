@@ -943,7 +943,7 @@ class SVCircuit:
                 last_y = y
                 min_y = min(min_y, y)  # Track minimum Y coordinate (most negative = bottom)
                 x = left_margin + x_step * float(lvl)
-                elem = self._add_gate(d, g, x, y, gate_label_fontsize, fill_gates, style_settings, show_internal_labels, show_all_labels)
+                elem = self._add_gate(d, g, x, y, gate_label_fontsize, fill_gates, style_settings, show_internal_labels, show_all_labels, font_scale)
                 if hasattr(elem, 'out'):
                     out_pt = elem.out
                 else:
@@ -1429,7 +1429,7 @@ class SVCircuit:
             fh.write(svg_text)
         return None
 
-    def _add_gate(self, d, g: Gate, x: float, y: float, fontsize: int = 9, fill_gates: bool = False, style_settings: dict = None, show_internal_labels: bool = True, show_all_labels: bool = True):
+    def _add_gate(self, d, g: Gate, x: float, y: float, fontsize: int = 9, fill_gates: bool = False, style_settings: dict = None, show_internal_labels: bool = True, show_all_labels: bool = True, font_scale: float = 1.2):
         t = g.type.upper()
         label = g.name
 
@@ -1473,53 +1473,57 @@ class SVCircuit:
             if g.delay:
                 # Add timing label at center of gate (inside the gate)
                 # Use smaller font (6pt minimum) and 't:' prefix
-                # Adjust vertical offset to center label text with gate center
+                # CRITICAL: In Schemdraw, NEGATIVE offset moves DOWN, POSITIVE moves UP
+                # Offset units are Schemdraw drawing units - must scale with font_scale to maintain visual spacing
+                # Move label DOWN to center text centerline at gate centerline
                 label_fontsize = max(6, fontsize-3)
-                # Approximate vertical offset: move label down by ~4% of fontsize to center it
-                vertical_offset = -label_fontsize * 0.04  # Schemdraw units (negative moves down)
+                vertical_offset = -0.15 * font_scale  # Scale offset with font_scale (negative moves DOWN)
                 elem.label(f't:{g.delay}', 'center', fontsize=label_fontsize, ofst=(0, vertical_offset))
             return elem
 
         # For 2-input gates, we want the gate centered between inputs, not the output pin
         # Schemdraw gates: when anchored on 'center', the geometric center is at (x,y)
         # and inputs are symmetrically positioned above/below
+        # Gate name label offset - scale with font_scale for consistent visual spacing
+        gate_name_offset = -0.2 * font_scale
+
         if t == 'NAND':
             elem = maybe_fill(logic.Nand().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t == 'AND':
             elem = maybe_fill(logic.And().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t == 'OR':
             elem = maybe_fill(logic.Or().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t == 'NOR':
             elem = maybe_fill(logic.Nor().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t == 'XOR':
             elem = maybe_fill(logic.Xor().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t == 'XNOR':
             elem = maybe_fill(logic.Xnor().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t in ('NOT', 'INV'):
             elem = maybe_fill(logic.Not().at((x, y)))
             elem = add_delay_label(elem)
-            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         if t in ('BUF', 'BUFFER'):
             try:
                 elem = maybe_fill(logic.Buffer().at((x, y)))
                 elem = add_delay_label(elem)
-                return d.add(elem.label(label, 'bottom', fontsize=fontsize))
+                return d.add(elem.label(label, 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
             except Exception:
                 elem = maybe_fill(elm.Rect(w=1, h=1).at((x, y)))
                 elem = add_delay_label(elem)
-                return d.add(elem.label(f"BUF:{label}", 'bottom', fontsize=fontsize))
+                return d.add(elem.label(f"BUF:{label}", 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
         elem = maybe_fill(elm.Rect(w=1, h=1).at((x, y)))
         elem = add_delay_label(elem)
-        return d.add(elem.label(f"{t}:{label}", 'bottom', fontsize=fontsize))
+        return d.add(elem.label(f"{t}:{label}", 'bottom', fontsize=fontsize, ofst=(0, gate_name_offset)))
