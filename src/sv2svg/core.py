@@ -1472,7 +1472,12 @@ class SVCircuit:
         def add_delay_label(elem):
             if g.delay:
                 # Add timing label at center of gate (inside the gate)
-                elem.label(f'#{g.delay}', 'center', fontsize=max(7, fontsize-2))
+                # Use smaller font (6pt minimum) and 't:' prefix
+                # Adjust vertical offset to center label text with gate center
+                label_fontsize = max(6, fontsize-3)
+                # Approximate vertical offset: move label up by ~40% of fontsize to center it
+                vertical_offset = label_fontsize * 0.04  # Schemdraw units
+                elem.label(f't:{g.delay}', 'center', fontsize=label_fontsize, ofst=(0, vertical_offset))
             return elem
 
         # For 2-input gates, we want the gate centered between inputs, not the output pin
