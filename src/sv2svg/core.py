@@ -1475,8 +1475,8 @@ class SVCircuit:
                 # Use smaller font (6pt minimum) and 't:' prefix
                 # Adjust vertical offset to center label text with gate center
                 label_fontsize = max(6, fontsize-3)
-                # Approximate vertical offset: move label up by ~40% of fontsize to center it
-                vertical_offset = label_fontsize * 0.04  # Schemdraw units
+                # Approximate vertical offset: move label down by ~4% of fontsize to center it
+                vertical_offset = -label_fontsize * 0.04  # Schemdraw units (negative moves down)
                 elem.label(f't:{g.delay}', 'center', fontsize=label_fontsize, ofst=(0, vertical_offset))
             return elem
 
