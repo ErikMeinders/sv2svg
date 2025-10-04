@@ -1,3 +1,10 @@
+## [0.12.4](https://github.com/ErikMeinders/sv2svg/compare/v0.12.3...v0.12.4) (2025-10-04)
+
+
+### Bug Fixes
+
+* scale gate name label offsets with font_scale for consistent positioning ([e9bc0c1](https://github.com/ErikMeinders/sv2svg/commit/e9bc0c11927f76221405e5ea0915dd12785e1da1))
+
 ## [0.12.3](https://github.com/ErikMeinders/sv2svg/compare/v0.12.2...v0.12.3) (2025-10-04)
 
 
