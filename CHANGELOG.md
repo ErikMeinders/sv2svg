@@ -1,3 +1,10 @@
+# [0.12.0](https://github.com/ErikMeinders/sv2svg/compare/v0.11.5...v0.12.0) (2025-10-04)
+
+
+### Features
+
+* add support for timing delays in assign statements ([9bfc3cf](https://github.com/ErikMeinders/sv2svg/commit/9bfc3cfc9bc3afb62d44fa7c1eedc12439defc02)), closes [#13](https://github.com/ErikMeinders/sv2svg/issues/13)
+
 ## [0.11.5](https://github.com/ErikMeinders/sv2svg/compare/v0.11.4...v0.11.5) (2025-10-04)
 
 
