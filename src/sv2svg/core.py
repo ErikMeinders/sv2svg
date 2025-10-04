@@ -20,6 +20,7 @@ class Gate:
     inputs: List[str]
     output: str
     level: int = 0
+    delay: Optional[str] = None
 
 
 # Expression Parser for complex assign statements
@@ -475,10 +476,12 @@ class SVCircuit:
         # - Parentheses: y = (a | b) & c
         # - Multi-operator: y = a & b | c & d
         # - Negation: y = ~(a & b | c)
+        # Also supports timing delays: assign #3 y = a & b;
 
-        for match in re.findall(r"assign\s+(\w+)\s*=\s*([^;]+);", content):
-            output_sig = match[0].strip()
-            expr_str = match[1].strip()
+        for match in re.findall(r"assign\s+(?:#(\d+)\s+)?(\w+)\s*=\s*([^;]+);", content):
+            delay_val = match[0].strip() if match[0] else None
+            output_sig = match[1].strip()
+            expr_str = match[2].strip()
 
             # Skip if this output is already driven by an explicit gate
             if any(g.output == output_sig for g in self.gates):
@@ -496,6 +499,10 @@ class SVCircuit:
                 converter.convert(ast, is_root=True)
 
                 # Add generated gates and internal signals
+                # Set delay on the root (output) gate
+                for i, gate in enumerate(converter.gates):
+                    if gate.output == output_sig and delay_val:
+                        gate.delay = delay_val
                 self.gates.extend(converter.gates)
                 self.internal_signals.update(converter.internal_signals)
             except Exception:
@@ -1402,27 +1409,53 @@ class SVCircuit:
                 return elem.fill(fill_color)
             return elem
 
+        # Helper to add timing label inside the gate
+        def add_delay_label(elem):
+            if g.delay:
+                # Add timing label at center of gate (inside the gate)
+                elem.label(f'#{g.delay}', 'center', fontsize=max(7, fontsize-2))
+            return elem
+
         # For 2-input gates, we want the gate centered between inputs, not the output pin
         # Schemdraw gates: when anchored on 'center', the geometric center is at (x,y)
         # and inputs are symmetrically positioned above/below
         if t == 'NAND':
-            return d.add(maybe_fill(logic.Nand().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+            elem = maybe_fill(logic.Nand().at((x, y)))
+            elem = add_delay_label(elem)
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t == 'AND':
-            return d.add(maybe_fill(logic.And().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+            elem = maybe_fill(logic.And().at((x, y)))
+            elem = add_delay_label(elem)
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t == 'OR':
-            return d.add(maybe_fill(logic.Or().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+            elem = maybe_fill(logic.Or().at((x, y)))
+            elem = add_delay_label(elem)
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t == 'NOR':
-            return d.add(maybe_fill(logic.Nor().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+            elem = maybe_fill(logic.Nor().at((x, y)))
+            elem = add_delay_label(elem)
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t == 'XOR':
-            return d.add(maybe_fill(logic.Xor().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+            elem = maybe_fill(logic.Xor().at((x, y)))
+            elem = add_delay_label(elem)
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t == 'XNOR':
-            return d.add(maybe_fill(logic.Xnor().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+            elem = maybe_fill(logic.Xnor().at((x, y)))
+            elem = add_delay_label(elem)
+            return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t in ('NOT', 'INV'):
             elem = maybe_fill(logic.Not().at((x, y)))
+            elem = add_delay_label(elem)
             return d.add(elem.label(label, 'bottom', fontsize=fontsize))
         if t in ('BUF', 'BUFFER'):
             try:
-                return d.add(maybe_fill(logic.Buffer().at((x, y))).label(label, 'bottom', fontsize=fontsize))
+                elem = maybe_fill(logic.Buffer().at((x, y)))
+                elem = add_delay_label(elem)
+                return d.add(elem.label(label, 'bottom', fontsize=fontsize))
             except Exception:
-                return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"BUF:{label}", 'bottom', fontsize=fontsize))
-        return d.add(maybe_fill(elm.Rect(w=1, h=1).at((x, y))).label(f"{t}:{label}", 'bottom', fontsize=fontsize))
+                elem = maybe_fill(elm.Rect(w=1, h=1).at((x, y)))
+                elem = add_delay_label(elem)
+                return d.add(elem.label(f"BUF:{label}", 'bottom', fontsize=fontsize))
+        elem = maybe_fill(elm.Rect(w=1, h=1).at((x, y)))
+        elem = add_delay_label(elem)
+        return d.add(elem.label(f"{t}:{label}", 'bottom', fontsize=fontsize))
