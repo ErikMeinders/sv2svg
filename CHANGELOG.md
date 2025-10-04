@@ -1,3 +1,10 @@
+## [0.12.2](https://github.com/ErikMeinders/sv2svg/compare/v0.12.1...v0.12.2) (2025-10-04)
+
+
+### Bug Fixes
+
+* improve timing labels for better readability ([ee75009](https://github.com/ErikMeinders/sv2svg/commit/ee75009da0b33e0d992d029b2b42df0bcdcefd88)), closes [#17](https://github.com/ErikMeinders/sv2svg/issues/17)
+
 ## [0.12.1](https://github.com/ErikMeinders/sv2svg/compare/v0.12.0...v0.12.1) (2025-10-04)
 
 
