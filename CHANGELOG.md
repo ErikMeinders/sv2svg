@@ -1,3 +1,10 @@
+## [0.11.5](https://github.com/ErikMeinders/sv2svg/compare/v0.11.4...v0.11.5) (2025-10-04)
+
+
+### Bug Fixes
+
+* restrict input/output parsing regex to valid identifiers ([d840ab8](https://github.com/ErikMeinders/sv2svg/commit/d840ab8ba2b0f7d63a179c2f1bcbed154022262e)), closes [#11](https://github.com/ErikMeinders/sv2svg/issues/11)
+
 ## [0.11.4](https://github.com/ErikMeinders/sv2svg/compare/v0.11.3...v0.11.4) (2025-10-03)
 
 
