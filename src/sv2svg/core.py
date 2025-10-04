@@ -450,11 +450,11 @@ class SVCircuit:
         self.port_order = [p.strip() for p in raw_ports.split(',') if p.strip()]
 
         for decl, target in (("input", self.inputs), ("output", self.outputs)):
-            for match in re.findall(rf"{decl}\s+(?:wire|logic)?\s*([^;]+);", content):
+            for match in re.findall(rf"{decl}\s+(?:wire|logic)?\s*([\w,\s]+);", content):
                 names = [x.strip() for x in match.split(',') if x.strip()]
                 target.extend(names)
 
-        for match in re.findall(r"logic\s+([^;]+);", content):
+        for match in re.findall(r"logic\s+([\w,\s]+);", content):
             names = [x.strip() for x in match.split(',') if x.strip()]
             self.internal_signals.update(names)
 
