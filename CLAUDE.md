@@ -97,6 +97,14 @@ See `TESTING.md` for detailed testing guide.
   - Grid snapping for alignment
 - **Routing**: Wire routing with bounding-box collision avoidance (detours around gates)
 - **Labeling**: Automatic labeling of intermediate signals (declared as `logic`)
+- **Label Positioning & Offsets**:
+  - **CRITICAL**: Schemdraw label offset units are in drawing coordinate units, NOT font points
+  - **Positive Y offset moves UP, negative Y offset moves DOWN**
+  - **MUST scale offsets with `font_scale`** to maintain consistent visual spacing across diagram sizes
+  - Typical base offset values: -0.15 for timing labels, -0.2 for gate name labels
+  - Scaled offset = `base_offset * font_scale` (e.g., -0.15 × 1.2 = -0.18 for default scale)
+  - Timing labels: use 'center' position with offset ≈ -0.15 to center text inside gates
+  - Gate name labels: use 'bottom' position with offset ≈ -0.2 to position below gates
 - **Truth Table**: Circuit simulator generates truth tables for verification (max 5 inputs)
 - **Vertical Orientation**: SVG post-processing rotates horizontal layout 90° clockwise
 
