@@ -448,12 +448,71 @@ class SVCircuit:
             raise ValueError("Could not find module definition")
         self.module_name = m.group(1)
         raw_ports = m.group(2)
-        self.port_order = [p.strip() for p in raw_ports.split(',') if p.strip()]
 
+        # Parse inline port declarations (e.g., "input logic a, b, output logic y")
+        inline_ports_parsed = False
+        port_list = []
+
+        # Split by comma and process each part
+        parts = [p.strip() for p in raw_ports.split(',') if p.strip()]
+        current_direction = None
+        current_type = None
+
+        for part in parts:
+            # Check if this part contains a direction keyword
+            if re.match(r'^\s*(input|output|inout)\s+', part):
+                # Extract direction, optional type, and port name
+                # Match patterns: "input a", "input logic a", "input wire a"
+                match = re.match(r'^\s*(input|output|inout)\s+(?:(wire|logic)\s+)?(\w+)\s*$', part)
+                if match:
+                    current_direction = match.group(1)
+                    current_type = match.group(2)  # wire or logic (optional)
+                    port_name = match.group(3)
+                    port_list.append(port_name)
+
+                    # Add to appropriate list
+                    if current_direction == 'input':
+                        if port_name not in self.inputs:
+                            self.inputs.append(port_name)
+                    elif current_direction == 'output':
+                        if port_name not in self.outputs:
+                            self.outputs.append(port_name)
+                    inline_ports_parsed = True
+                else:
+                    # If regex didn't match, it might be a multiline case - just extract direction
+                    direction_match = re.match(r'^\s*(input|output|inout)\s*$', part)
+                    if direction_match:
+                        current_direction = direction_match.group(1)
+                        inline_ports_parsed = True
+            else:
+                # This is just a port name, continuing from previous direction
+                port_name = part
+                port_list.append(port_name)
+
+                # Add to appropriate list if we have a current direction
+                if current_direction == 'input':
+                    if port_name not in self.inputs:
+                        self.inputs.append(port_name)
+                    inline_ports_parsed = True
+                elif current_direction == 'output':
+                    if port_name not in self.outputs:
+                        self.outputs.append(port_name)
+                    inline_ports_parsed = True
+
+        # If inline ports were parsed, use the cleaned port list
+        if inline_ports_parsed:
+            self.port_order = port_list
+        else:
+            # Fall back to simple comma split (no inline types)
+            self.port_order = [p.strip() for p in raw_ports.split(',') if p.strip()]
+
+        # Also parse standalone port declarations (for backwards compatibility)
         for decl, target in (("input", self.inputs), ("output", self.outputs)):
             for match in re.findall(rf"{decl}\s+(?:wire|logic)?\s*([\w,\s]+);", content):
                 names = [x.strip() for x in match.split(',') if x.strip()]
-                target.extend(names)
+                for name in names:
+                    if name not in target:
+                        target.append(name)
 
         for match in re.findall(r"logic\s+([\w,\s]+);", content):
             names = [x.strip() for x in match.split(',') if x.strip()]
