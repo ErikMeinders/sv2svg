@@ -1,3 +1,10 @@
+## [0.12.1](https://github.com/ErikMeinders/sv2svg/compare/v0.12.0...v0.12.1) (2025-10-04)
+
+
+### Bug Fixes
+
+* parse inline port type specifications ([e648741](https://github.com/ErikMeinders/sv2svg/commit/e64874168a6485a1f0e931d1d988f627eaed417c)), closes [#14](https://github.com/ErikMeinders/sv2svg/issues/14)
+
 # [0.12.0](https://github.com/ErikMeinders/sv2svg/compare/v0.11.5...v0.12.0) (2025-10-04)
 
 
