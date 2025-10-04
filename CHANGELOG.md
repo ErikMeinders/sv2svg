@@ -1,3 +1,10 @@
+## [0.12.3](https://github.com/ErikMeinders/sv2svg/compare/v0.12.2...v0.12.3) (2025-10-04)
+
+
+### Bug Fixes
+
+* correct timing label vertical offset to move labels down ([dc81449](https://github.com/ErikMeinders/sv2svg/commit/dc81449c70f01b40e9749c49f178e4d00f9e9ac9)), closes [#17](https://github.com/ErikMeinders/sv2svg/issues/17) [#19](https://github.com/ErikMeinders/sv2svg/issues/19)
+
 ## [0.12.2](https://github.com/ErikMeinders/sv2svg/compare/v0.12.1...v0.12.2) (2025-10-04)
 
 
