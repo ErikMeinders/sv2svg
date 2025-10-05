@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **sv2svg** converts structural SystemVerilog modules into readable logic-diagram SVGs using Schemdraw. It parses HDL, assigns gates to levels via topological sorting, and renders them left-to-right (or top-to-bottom) with automatic routing and collision avoidance.
 
+## Schemdraw Reference
+
+**IMPORTANT**: When working with Schemdraw features, always consult the official documentation at https://schemdraw.readthedocs.io/en/stable/ for:
+- Element API reference and available parameters
+- Logic gate components and their capabilities
+- Layout and positioning options
+- Styling and theming features
+- SVG output and rendering options
+
+The Schemdraw documentation is the authoritative source for understanding available features and proper usage patterns.
+
 ## Key Development Commands
 
 ### Environment Setup
@@ -50,6 +61,7 @@ sv2svg --version
 - `--grid-y FLOAT` — Vertical grid snapping (default: 0, disabled by default)
 - `--no-symmetry` — Disable symmetric gate placement
 - `--input-order {alpha,ports,auto}` — Input port ordering (default: alpha)
+- `--font-scale FLOAT` — Font size scale factor (default: 1.2 for slightly larger fonts)
 
 *Visualization Enhancements*:
 - `--fill-gates` — Enable fill colors for logic gates (subtle pastels by default, vibrant colors with `--style vibrant`)
@@ -57,6 +69,8 @@ sv2svg --version
 - `--fanout-wires` — Use thicker lines for signals with higher fan-out (1.0→2.0 based on load count)
 - `--table` — Include truth table in diagram (max 5 inputs)
 - `--no-caption` — Suppress "Module: modulename" caption
+- `--no-internal-labels` — Suppress labels on auto-generated elements (auto_*, _expr_*)
+- `--no-labels` — Suppress ALL labels except inputs and outputs
 
 ### Testing
 ```bash
@@ -145,6 +159,7 @@ The parser supports **structural SystemVerilog** (explicit gate instantiations) 
   - Multi-operator: `assign y = a & b | c & d;` → OR(AND(a,b), AND(c,d))
   - Negation patterns: `assign y = ~(a & b | c);` → NOR gate with intermediate gates
   - Multi-input: `assign y = a & b & c;` → cascaded AND gates with auto-generated intermediate signals
+  - Timing delays: `assign #3 y = a & b;` → AND gate with 3-unit delay (displayed as 't:3' label inside gate)
 
 **Expression Parser** (`core.py:26-303`):
 - **Tokenizer**: Converts expressions to tokens (identifiers, operators, parentheses)

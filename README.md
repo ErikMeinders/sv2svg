@@ -93,6 +93,9 @@ usage: sv2svg [-h] [-o OUTPUT] [--input-order {alpha,ports,auto}]
 - `--fanout-wires` — Use thicker lines for signals driving multiple gates (visual fan-out indicator)
 - `--table` — Include truth table in diagram (only for circuits with ≤5 inputs)
 - `--no-caption` — Suppress "Module: modulename" caption for cleaner diagrams
+- `--no-internal-labels` — Suppress labels on auto-generated elements (auto_*, _expr_*)
+- `--no-labels` — Suppress ALL labels except inputs and outputs
+- `--font-scale FLOAT` — Font size scale factor (default: 1.2 for slightly larger fonts)
 
 ## Tips for better diagrams
 - Keep each module in its own file and ensure port declarations are explicit.
@@ -141,6 +144,9 @@ assign y = a | b | c | d;      // Cascaded OR gates
 // Complex nested expressions
 assign y = (a & b) | (c & d);  // OR(AND(a,b), AND(c,d))
 assign y = ~((a | b) & c);     // NOT(AND(OR(a,b), c))
+
+// Timing delays (displayed as 't:N' label inside gate)
+assign #3 y = a & b;           // AND gate with 3-unit delay
 ```
 
 The parser automatically:

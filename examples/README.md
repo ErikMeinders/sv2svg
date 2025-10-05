@@ -43,9 +43,11 @@ sv2svg examples/assign_statements.sv --style classic -o assign_statements.svg
 
 Each example can be rendered with different visual styles:
 - `classic` - Dark blue-gray (default)
-- `blueprint` - NASA blue
-- `midnight` - Cyan on dark
-- `mono` - Grayscale
+- `blueprint` - NASA blue for technical documentation
+- `midnight` - Cyan on dark background
+- `mono` - Grayscale for print-friendly output
+- `vibrant` - Bright gate colors (best with `--fill-gates`)
+- `dark` - Light-on-dark theme for dark mode documentation
 
 And orientations:
 - `horizontal` - Left-to-right (default)
@@ -54,4 +56,9 @@ And orientations:
 Example with all options:
 ```bash
 sv2svg examples/full_adder.sv --style blueprint --orientation vertical --grid-x 10 --grid-y 10 --no-symmetry -o full_adder_custom.svg
+```
+
+Example with vibrant style and filled gates:
+```bash
+sv2svg examples/complex_logic.sv --style vibrant --fill-gates --signal-styles --fanout-wires -o complex_logic_vibrant.svg
 ```
